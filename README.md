@@ -18,21 +18,28 @@ Streamlit draft copilot for Sleeper NBA fantasy leagues — live pick tracking, 
 
 ## Setup
 
-1. Install Python 3.10+.
-2. Install dependencies:
+1. Clone the repo and enter the project folder:
+
+```bash
+git clone https://github.com/SatyanThayaparan/sleeper-tracker.git
+cd sleeper-tracker
+```
+
+2. Install [Python 3.10+](https://www.python.org/downloads/).
+3. Install dependencies:
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-3. Run the app:
+4. Run the app:
 
 ```bash
 python -m streamlit run app.py
 ```
 
-4. Open the Streamlit URL (usually `http://localhost:8501`).
-5. Select your Sleeper username and import a projections CSV if desired.
+5. Open the Streamlit URL (usually `http://localhost:8501`).
+6. Select your Sleeper username and import a projections CSV if desired.
 
 ## Usage
 

@@ -727,30 +727,60 @@ def live_dashboard(active_page: str):
             )
 
     elif active_page == "board":
-        render_page_header(title="Draft Board", subtitle="Recent picks from your Sleeper draft.", live=True)
-        rows = []
-        for p in reversed(picks[-75:]):
-            rows.append(
-                {
-                    "Overall": p.get("pick_no"),
-                    "Round": p.get("round"),
-                    "Player": player_name(p.get("player_id"), players, picks),
-                    "User": p.get("picked_by"),
-                    "Roster": p.get("roster_id"),
-                    "Position": ", ".join(
-                        player_positions(players.get(str(p.get("player_id")), {}))
-                    ),
-                }
-            )
-        if rows:
-            st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+        completed = draft_status in ("complete", "completed")
+        render_page_header(
+            title="Draft Board",
+            subtitle="Follow each selection and see how the draft is progressing.",
+            live=not completed and draft_status in ("drafting", "in_progress"),
+        )
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Picks made", len(picks))
+        m2.metric("Teams", teams or "—")
+        m3.metric("Latest round", max((int(p.get("round") or 0) for p in picks), default=0) or "—")
+        if completed:
+            st.info("This draft is complete. You can review all picks below.")
+        st.markdown("### Recent draft activity")
+        st.caption("The latest selections appear first.")
+        if picks:
+            for pick in reversed(picks[-5:]):
+                name = escape_html(player_name(pick.get("player_id"), players, picks))
+                no = escape_html(str(pick.get("pick_no") or "—"))
+                rd = escape_html(str(pick.get("round") or "—"))
+                positions = ", ".join(player_positions(players.get(str(pick.get("player_id")), {})))
+                st.markdown(
+                    f'<div class="fx-activity-row"><span class="fx-activity-number">{no}</span>'
+                    f'<div><strong>{name}</strong><small>Round {rd} · '
+                    f'{escape_html(positions or "Position unavailable")}</small></div></div>',
+                    unsafe_allow_html=True,
+                )
         else:
-            st.info("No completed draft picks yet.")
-        if roster_ids:
-            st.markdown(
-                "**Your drafted players**: "
-                + ", ".join(player_name(pid, players, picks) for pid in roster_ids)
-            )
+            st.info("No draft picks yet.")
+        with st.container(border=True):
+            st.markdown("### Complete pick history")
+            rows = []
+            for pick in reversed(picks):
+                rows.append({
+                    "Overall": pick.get("pick_no"),
+                    "Round": pick.get("round"),
+                    "Player": player_name(pick.get("player_id"), players, picks),
+                    "User": pick.get("picked_by"),
+                    "Roster": pick.get("roster_id"),
+                    "Position": ", ".join(
+                        player_positions(players.get(str(pick.get("player_id")), {}))
+                    ),
+                })
+            if rows:
+                search = st.text_input("Search drafted players", key="draft_search")
+                frame = pd.DataFrame(rows)
+                if search.strip():
+                    frame = frame[frame["Player"].astype(str).str.contains(
+                        search.strip(), case=False, regex=False, na=False
+                    )]
+                st.dataframe(frame, hide_index=True, width="stretch", height=430)
+            if roster_ids:
+                with st.expander("Players on your team"):
+                    st.write(", ".join(player_name(pid, players, picks) for pid in roster_ids))
+
 
     elif active_page == "players":
         render_page_header(

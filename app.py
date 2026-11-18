@@ -890,37 +890,56 @@ def live_dashboard(active_page: str):
     elif active_page == "reports":
         render_page_header(
             title="Reports & News",
-            subtitle="Headlines that can move picks up, down, or onto the fade list.",
-            live=True,
+            subtitle="NBA headlines to help you spot updates worth checking before a pick.",
+            live=False,
         )
-        st.caption(
-            "RSS: ESPN NBA and Google News. Verify injuries before drafting."
-        )
+        n1, n2, n3 = st.columns(3)
+        n1.metric("Headlines loaded", len(articles))
+        n2.metric("News feeds", len({a.get("source") for a in articles if a.get("source")}))
+        n3.metric("Players reviewed", min(len(board.get("rows") or []), 80))
+        st.caption("News is informational, not a verified injury diagnosis. "
+                   "Always confirm updates before drafting.")
         if not articles:
             st.warning("News feeds are unavailable right now.")
         else:
             grouped = {}
             for row in board["rows"][:80]:
                 for hit in row.get("hits") or []:
-                    bucket = grouped.setdefault(hit["title"], {"hit": hit, "names": []})
+                    headline = hit.get("title")
+                    if not headline:
+                        continue
+                    bucket = grouped.setdefault(headline, {"hit": hit, "names": []})
                     if row["player"] not in bucket["names"]:
                         bucket["names"].append(row["player"])
-            relevant = list(grouped.values())
-            if relevant:
+            if grouped:
+                st.markdown("### Reports mentioning available players")
+                for item in list(grouped.values())[:8]:
+                    hit = item["hit"]
+                    with st.container(border=True):
+                        if hit.get("link"):
+                            st.markdown(f'**[{hit["title"]}]({hit["link"]})**')
+                        else:
+                            st.markdown(f'**{hit.get("title") or "News report"}**')
+                        st.caption(f'{hit.get("source") or "News"} · Players mentioned: '
+                                   + ", ".join(item["names"][:4]))
+            st.markdown("### Latest league-wide headlines")
+            sources = sorted({str(item.get("source") or "Unknown") for item in articles})
+            source = st.selectbox("Filter by source", ["All sources"] + sources,
+                                  key="news_source_filter")
+            visible = [a for a in articles if source == "All sources"
+                       or str(a.get("source") or "Unknown") == source]
+            for article in visible[:20]:
                 with st.container(border=True):
-                    st.markdown("**Reports mentioning top available players**")
-                    for item in relevant[:12]:
-                        article = item["hit"]
-                        st.markdown(
-                            f'- [{article["title"]}]({article["link"]}) — {article["source"]} • '
-                            f'{", ".join(item["names"])} · {article["tone"]}'
-                        )
-            with st.container(border=True):
-                st.markdown("**Latest league-wide headlines**")
-                for article in articles[:20]:
-                    st.markdown(
-                        f'- [{article["title"]}]({article["link"]}) — {article["source"]}'
-                    )
+                    title = article.get("title") or "Read story"
+                    url = article.get("link")
+                    if url:
+                        st.markdown(f"**[{title}]({url})**")
+                    else:
+                        st.markdown(f"**{title}**")
+                    details = " · ".join(filter(None, [article.get("source"),
+                                                      article.get("published")]))
+                    if details:
+                        st.caption(details)
 
 
 if page in ("overview", "board", "players", "reports"):

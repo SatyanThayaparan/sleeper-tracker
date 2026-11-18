@@ -628,7 +628,7 @@ hr { border-color: var(--color-border) !important; }
 
 def render_sidebar_brand() -> None:
     """Compact, resolution-independent green dice mark from the layout preview."""
-    st.markdown(
+    st.html(
         f"""
 <div class="fx-brand">
   <span class="fx-brand-icon" aria-hidden="true">
@@ -648,7 +648,6 @@ def render_sidebar_brand() -> None:
   <span class="fx-brand-name">{escape(APP_NAME)}</span>
 </div>
 """,
-        unsafe_allow_html=True,
     )
 
 

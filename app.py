@@ -395,18 +395,47 @@ with st.sidebar:
         league_name="Configured draft" if _preview_connected else "",
         meta="Manage under Settings" if _preview_connected else "Open Settings to connect",
     )
-    st.markdown('<div class="fx-nav-label">Navigate</div>', unsafe_allow_html=True)
-    all_labels = [label for _, label in NAV_PAGES] + [label for _, label in UTIL_PAGES]
-    all_keys = [key for key, _ in NAV_PAGES] + [key for key, _ in UTIL_PAGES]
-    current_label = dict(zip(all_keys, all_labels)).get(st.session_state.page, "Overview")
-    chosen = st.radio(
-        "Primary navigation",
-        all_labels,
-        index=all_labels.index(current_label) if current_label in all_labels else 0,
-        label_visibility="collapsed",
-        key="nav_radio",
+    nav_icons = {
+        "overview": ":material/home:",
+        "board": ":material/view_module:",
+        "players": ":material/bar_chart:",
+        "reports": ":material/article:",
+        "settings": ":material/settings:",
+        "help": ":material/help_outline:",
+    }
+
+    def select_page(destination):
+        st.session_state.page = destination
+
+    st.markdown('<div class="fx-nav-divider"></div>', unsafe_allow_html=True)
+    for destination, label in NAV_PAGES:
+        with st.container(key=f"nav_{destination}"):
+            st.button(
+                label, icon=nav_icons[destination],
+                key=f"nav_button_{destination}", use_container_width=True,
+                on_click=select_page, args=(destination,),
+                type="secondary",
+            )
+
+    st.markdown('<div class="fx-nav-divider fx-utility-divider"></div>', unsafe_allow_html=True)
+    for destination, label in UTIL_PAGES:
+        with st.container(key=f"nav_{destination}"):
+            st.button(
+                label, icon=nav_icons[destination],
+                key=f"nav_button_{destination}", use_container_width=True,
+                on_click=select_page, args=(destination,),
+                type="secondary",
+            )
+    active_page = st.session_state.page
+    st.markdown(
+        f'<style>section[data-testid="stSidebar"] .st-key-nav_{active_page} '
+        'button {background: var(--color-accent-subtle) !important;'
+        ' color: var(--color-text-primary) !important; font-weight: 600 !important;}'
+        f' section[data-testid="stSidebar"] .st-key-nav_{active_page} '
+        'button [data-testid="stIconMaterial"] {color: var(--color-accent) !important;}'
+        '</style>',
+        unsafe_allow_html=True,
     )
-    st.session_state.page = dict(zip(all_labels, all_keys))[chosen]
 
 page = st.session_state.page
 
@@ -832,7 +861,10 @@ def live_dashboard(active_page: str):
 
 
 if page in ("overview", "board", "players", "reports"):
-    live_dashboard(page)
+    # Keyed page content remounts when navigation changes, enabling a brief
+    # enter animation without altering the Sleeper data-refresh fragment.
+    with st.container(key=f"view_{page}"):
+        live_dashboard(page)
     st.caption(
         "Data: Sleeper API · Hashtag Basketball ADP · ESPN / Google News. Advisory only — pick in Sleeper."
     )

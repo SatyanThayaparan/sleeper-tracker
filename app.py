@@ -356,24 +356,40 @@ def render_settings_form(league_id_hint: str = ""):
 
 def render_help():
     render_page_header(
-        title="Help",
-        subtitle="How Picky works and what the recommendations mean.",
+        title="Help & Getting Started",
+        subtitle="Learn what Picky does and understand common fantasy draft terms.",
         live=False,
     )
     with st.container(border=True):
+        st.markdown("### Get started in three steps")
         st.markdown(
-            """
-**Picky** is an advisory Lock-In redraft copilot for Sleeper NBA drafts.
-
-1. Open **Settings & Connections** and paste your Sleeper draft link.
-2. Optionally set your username so roster fit is included.
-3. Upload a projections CSV or use the Hashtag Basketball ADP blend.
-4. Use **Overview** for live picks, top recommendations, sleeper, and fade.
-
-Draft selections are always made in Sleeper. Data sources: Sleeper API, Hashtag Basketball ADP,
-ESPN NBA RSS, and Google News.
-"""
+            "**1. Connect your draft** — enter its Sleeper URL in Settings & Connections.\n\n"
+            "**2. Choose your fantasy team** — add your Sleeper username to improve roster fit.\n\n"
+            "**3. Explore recommendations** — check Overview, Rankings and Draft Board."
         )
+        st.info("Picky is an advisory tool. Make your actual draft picks in Sleeper.")
+    st.markdown("### Fantasy terms, explained")
+    terms = [
+        ("What is ADP?", "Average Draft Position: when a player is typically selected. Lower ADP means earlier."),
+        ("What is Lock-In scoring?", "A Sleeper format where eligible game performances can be locked in under your league rules."),
+        ("What is a sleeper pick?", "A player who may offer better value than their typical draft position suggests."),
+        ("What is a fade?", "A player to approach with caution based on available ranking, injury or news information."),
+        ("What is roster fit?", "How a player matches the starting positions your team still needs."),
+        ("What are projections?", "Estimates of future production that can be imported to customize ranking."),
+    ]
+    for title, detail in terms:
+        with st.expander(title):
+            st.write(detail)
+    with st.container(border=True):
+        st.markdown("### What each page shows")
+        st.markdown(
+            "**Overview:** your draft snapshot and recommendations.\n\n"
+            "**Draft Board:** recent selections and full pick history.\n\n"
+            "**Player Rankings:** available players, ADP, projection values and filters.\n\n"
+            "**Reports & News:** articles that may be relevant to fantasy decisions.\n\n"
+            "**Settings:** draft connection and optional ranking preferences."
+        )
+        st.caption("Sources: Sleeper API, Hashtag Basketball ADP, ESPN and Google News.")
 
 
 draft_link = st.session_state.cfg_draft_link

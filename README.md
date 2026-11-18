@@ -41,6 +41,21 @@ python -m streamlit run app.py
 5. Open the Streamlit URL (usually `http://localhost:8501`).
 6. Select your Sleeper username and import a projections CSV if desired.
 
+## Deploy (Streamlit Community Cloud — free)
+
+1. Open [share.streamlit.io](https://share.streamlit.io) and sign in with **GitHub**.
+2. **Create app** (or use a deploy link) with:
+   - Repository: `SatyanThayaparan/sleeper-tracker`
+   - Branch: `main`
+   - Main file: `app.py`
+3. Deploy — the public URL will look like `https://<name>.streamlit.app`.
+
+Direct deploy link (after GitHub auth):
+
+https://share.streamlit.io/deploy?repository=SatyanThayaparan/sleeper-tracker&branch=main&mainModule=app.py
+
+No API keys are required for read-only Sleeper draft polling. Apps on Community Cloud may sleep after ~12 hours without traffic.
+
 ## Usage
 
 - Enter a draft ID/URL, or use the configured draft already in the app.

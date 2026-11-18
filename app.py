@@ -28,6 +28,10 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 init_theme()
+if "picky_theme_toggle" in st.session_state:
+    st.session_state.theme_mode = (
+        "dark" if st.session_state.picky_theme_toggle else "light"
+    )
 inject_css(st.session_state.theme_mode)
 
 DEFAULT_DRAFT_ID = "1416933113287770112"

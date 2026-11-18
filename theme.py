@@ -69,7 +69,26 @@ def inject_css(mode: str | None = None) -> None:
     mode = mode or st.session_state.get("theme_mode", "dark")
     p = palette(mode)
     btn_fg = SHARED_INK_DARK if mode == "dark" else SHARED_INK_LIGHT
-    border_w = "1.5px" if mode == "dark" else "2px"
+    border_w = "1.5px" if mode == "dark" else "2.5px"
+    card_border = p["border"] if mode == "dark" else "#4A5573"
+    light_cards = (
+        f"""
+/* Light mode — force visible module frames (Streamlit can wash these out) */
+section.main [data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stAppViewContainer"] [data-testid="stVerticalBlockBorderWrapper"] {{
+  border: {border_w} solid {card_border} !important;
+  background: #FFFFFF !important;
+  box-shadow: 0 0 0 1px rgba(74, 85, 115, 0.22), {p["shadow"]} !important;
+}}
+
+section.main div[data-testid="stMetric"] {{
+  border: {border_w} solid {card_border} !important;
+  background: #FFFFFF !important;
+}}
+"""
+        if mode == "light"
+        else ""
+    )
     st.markdown(
         f"""
 <style>
@@ -290,16 +309,18 @@ div[data-testid="stMetric"] [data-testid="stMetricValue"] {{
   font-size: 1.35rem !important;
 }}
 
-div[data-testid="stVerticalBlockBorderWrapper"] {{
+[data-testid="stVerticalBlockBorderWrapper"] {{
   background: var(--surface) !important;
-  border: var(--border-w) solid var(--border) !important;
+  border: {border_w} solid {card_border} !important;
   border-radius: 16px !important;
   box-shadow: var(--shadow);
   transition: var(--theme-ease) !important;
   margin-bottom: 0.65rem !important;
+  border-style: solid !important;
+  outline: none !important;
 }}
 
-div[data-testid="stVerticalBlockBorderWrapper"] > div {{
+[data-testid="stVerticalBlockBorderWrapper"] > div {{
   background: transparent !important;
 }}
 
@@ -436,92 +457,95 @@ div[data-testid="stVerticalBlockBorderWrapper"] > div {{
   transition: var(--theme-ease);
 }}
 
-/*
-  Custom sun/moon theme pill (2×) in the first bordered sidebar module.
-  Matches main-page container borders; left-aligned at the top.
-*/
-section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor) {{
+{light_cards}
+
+/* Sidebar sun/moon pill (2×) — only toggle in sidebar; icons only, no text */
+section[data-testid="stSidebar"] [data-testid="stToggle"] {{
+  margin: 0.15rem 0 0.9rem 0 !important;
   width: fit-content !important;
-  max-width: 100% !important;
-  margin: 0 0 0.85rem 0 !important;
-  padding: 0.65rem 0.75rem !important;
 }}
 
-section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor) [data-testid="stMarkdown"] {{
+section[data-testid="stSidebar"] [data-testid="stToggle"] [data-testid="stWidgetLabel"],
+section[data-testid="stSidebar"] [data-testid="stToggle"] [data-testid="stMarkdownContainer"] {{
   display: none !important;
 }}
 
-section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor) button {{
+section[data-testid="stSidebar"] [data-testid="stToggle"] label[data-baseweb="checkbox"] {{
   position: relative !important;
   display: block !important;
-  width: 152px !important;
-  min-width: 152px !important;
-  max-width: 152px !important;
-  height: 64px !important;
+  width: 168px !important;
+  min-width: 168px !important;
+  max-width: 168px !important;
   min-height: 64px !important;
+  height: 64px !important;
   margin: 0 !important;
-  padding: 0 !important;
-  border-radius: 999px !important;
   border: none !important;
+  border-radius: 999px !important;
+  padding: 8px !important;
   box-shadow: none !important;
-  font-size: 0 !important;
-  color: transparent !important;
   overflow: hidden !important;
-  transition: var(--theme-ease) !important;
+  transition: background-color 0.45s ease !important;
 }}
 
-section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor.theme-light) button {{
-  background: #E8ECF5 !important;
+section[data-testid="stSidebar"] [data-testid="stToggle"] label[data-baseweb="checkbox"][aria-checked="false"] {{
+  background: #E4E9F3 !important;
 }}
 
-section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor.theme-dark) button {{
+section[data-testid="stSidebar"] [data-testid="stToggle"] label[data-baseweb="checkbox"][aria-checked="true"] {{
   background: #0B0E16 !important;
 }}
 
-section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor) button::after {{
-  content: "" !important;
-  position: absolute !important;
-  top: 6px !important;
-  width: 70px !important;
-  height: 52px !important;
-  border-radius: 999px !important;
-  transition: left 0.35s ease, right 0.35s ease, background-color 0.45s ease !important;
-  z-index: 1 !important;
-}}
-
-section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor.theme-light) button::after {{
-  left: 6px !important;
-  right: auto !important;
-  background: #B7C0D4 !important;
-}}
-
-section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor.theme-dark) button::after {{
-  left: auto !important;
-  right: 6px !important;
-  background: #2A3148 !important;
-}}
-
-section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor) button::before {{
+section[data-testid="stSidebar"] [data-testid="stToggle"] label[data-baseweb="checkbox"]::before {{
   content: "" !important;
   position: absolute !important;
   inset: 0 !important;
-  z-index: 2 !important;
+  z-index: 3 !important;
   pointer-events: none !important;
   background-repeat: no-repeat !important;
-  background-position: 18px center, calc(100% - 18px) center !important;
+  background-position: 22px center, calc(100% - 22px) center !important;
   background-size: 26px 26px, 24px 24px !important;
 }}
 
-section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor.theme-light) button::before {{
+section[data-testid="stSidebar"] [data-testid="stToggle"] label[data-baseweb="checkbox"][aria-checked="false"]::before {{
   background-image:
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23121622' stroke-width='2' stroke-linecap='round'><circle cx='12' cy='12' r='4'/><path d='M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4'/></svg>"),
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239AA3B8' stroke-width='2' stroke-linecap='round'><path d='M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z'/></svg>") !important;
 }}
 
-section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor.theme-dark) button::before {{
+section[data-testid="stSidebar"] [data-testid="stToggle"] label[data-baseweb="checkbox"][aria-checked="true"]::before {{
   background-image:
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7899' stroke-width='2' stroke-linecap='round'><circle cx='12' cy='12' r='4'/><path d='M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4'/></svg>"),
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23E8ECF5' stroke-width='2' stroke-linecap='round'><path d='M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z'/></svg>") !important;
+}}
+
+section[data-testid="stSidebar"] [data-testid="stToggle"] label[data-baseweb="checkbox"] > div:first-child {{
+  width: 76px !important;
+  height: 48px !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+  position: absolute !important;
+  top: 8px !important;
+  transform: none !important;
+  transition: left 0.35s ease, right 0.35s ease, background-color 0.45s ease !important;
+  z-index: 2 !important;
+}}
+
+section[data-testid="stSidebar"] [data-testid="stToggle"] label[data-baseweb="checkbox"][aria-checked="false"] > div:first-child {{
+  left: 8px !important;
+  right: auto !important;
+  background: #B0B9CE !important;
+}}
+
+section[data-testid="stSidebar"] [data-testid="stToggle"] label[data-baseweb="checkbox"][aria-checked="true"] > div:first-child {{
+  left: auto !important;
+  right: 8px !important;
+  background: #2A3148 !important;
+}}
+
+section[data-testid="stSidebar"] [data-testid="stToggle"] label[data-baseweb="checkbox"] > div:last-child {{
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
 }}
 
 hr {{
@@ -535,22 +559,14 @@ hr {{
 
 
 def render_sidebar_theme_toggle() -> None:
-    """2× sun/moon pill in a bordered module at the top-left of the sidebar."""
-    mode = st.session_state.get("theme_mode", "dark")
-    is_dark = mode == "dark"
-    with st.container(border=True):
-        st.markdown(
-            f'<div class="picky-theme-anchor {"theme-dark" if is_dark else "theme-light"}" aria-hidden="true"></div>',
-            unsafe_allow_html=True,
-        )
-        if st.button(
-            "theme",
-            key="picky_theme_btn",
-            help="Switch light / dark theme",
-            type="secondary",
-        ):
-            set_theme("light" if is_dark else "dark")
-            st.rerun()
+    """Sun/moon icon pill (sidebar toggle only — styled in CSS, no visible label)."""
+    is_dark = st.session_state.get("theme_mode", "dark") == "dark"
+    st.toggle(
+        "Dark mode",
+        value=is_dark,
+        key="picky_theme_toggle",
+        label_visibility="collapsed",
+    )
 
 
 def render_hero(*, title: str, subtitle: str, live: bool = False) -> None:

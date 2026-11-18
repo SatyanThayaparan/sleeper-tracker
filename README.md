@@ -6,6 +6,9 @@ Streamlit draft copilot for Sleeper NBA fantasy leagues — live pick tracking, 
 
 ## Features
 
+- Fantasy draft UI with **light / dark** themes (60-30-10):
+  - **Washi & Sumi** — cream paper, charcoal ink, vermilion accents
+  - **Midnight Shibuya** — aizome indigo, slate panels, matcha / gold accents
 - Connect to a Sleeper draft by ID or URL
 - Auto-refresh picks while the browser session is open
 - Import custom projection CSVs (FPPG, upside/floor, availability)
@@ -72,6 +75,8 @@ No API keys are required for read-only Sleeper draft polling. Apps on Community 
 ```text
 sleeper-tracker/
 ├── app.py                          # Streamlit UI
+├── theme.py                        # Washi / Midnight Shibuya themes
+├── .streamlit/config.toml          # default Streamlit theme tokens
 ├── recommend.py                    # recommendation logic
 ├── adp.py                          # ADP helpers
 ├── lockin_projection_template.csv  # projection CSV template

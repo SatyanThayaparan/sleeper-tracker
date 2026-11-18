@@ -686,8 +686,7 @@ hr { border-color: var(--color-border) !important; }
 
 def render_sidebar_brand() -> None:
     """Compact branded wordmark using the green dice tile from the reference."""
-    # Native st.image renders SVG data directly; inline SVG in st.html can be
-    # stripped by HTML sanitization and leave an empty green square.
+    # Streamlit accepts raw SVG XML as a string, not as arbitrary image bytes.
     dice_svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
       <rect width="48" height="48" rx="11" fill="#38B979"/>
       <g stroke="#0D2330" stroke-width="3" stroke-linejoin="round" fill="none">
@@ -701,7 +700,7 @@ def render_sidebar_brand() -> None:
     </svg>"""
     brand_logo, brand_name = st.columns([0.27, 0.73], gap="small", vertical_alignment="center")
     with brand_logo:
-        st.image(dice_svg.encode("utf-8"), width=48)
+        st.image(dice_svg, width=48)
     with brand_name:
         st.markdown(
             '<div class="fx-wordmark">Picky</div>',

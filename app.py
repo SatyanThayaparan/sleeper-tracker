@@ -1,4 +1,5 @@
 import re
+from html import escape as escape_html
 from datetime import datetime, timezone
 from urllib.parse import quote
 
@@ -237,45 +238,49 @@ def render_pick_card(title, row, empty_text, *, badge: str | None = None, badge_
 
 
 def render_top_recommendations(options, origin):
+    """Show the existing one-per-position suggestions in a readable grid."""
     with st.container(border=True):
         st.markdown(
-            """
-<div class="fx-section-head">
-  <h2 class="fx-section-title">Top recommendations</h2>
-</div>
-""",
+            '<div class="fx-section-head"><h2 class="fx-section-title">'
+            '✦ Recommendations</h2></div>',
             unsafe_allow_html=True,
         )
         if not options:
             st.caption("No best options yet.")
             return
         if any(row.get("role_have") for row in options):
-            st.caption(
-                "One player per role, prioritizing positions you have filled least."
-            )
+            st.caption("One player per role, prioritizing positions you have filled least.")
         else:
             st.caption(
-                "One player at each position for variety. Select your account in Settings for roster-aware order."
+                "One player at each position for variety. "
+                "Select your account in Settings for roster-aware order."
             )
+        metric_heading = "Blend ADP (lower is earlier)" if origin == "adp" else (
+            "Projection score" if origin == "projection" else "Baseline rank"
+        )
+        header = (
+            '<div class="fx-rec-head" aria-hidden="true">'
+            '<span>#</span><span>Player</span><span>Position</span>'
+            '<span>Team</span><span>' + escape_html(metric_heading) + '</span></div>'
+        )
         rows_html = []
         for index, row in enumerate(options, 1):
-            position = row["position"] or "—"
-            team = row["team"] or "FA"
-            score = projection_value(row, origin)
+            position = escape_html(str(row.get("position") or "—"))
+            team = escape_html(str(row.get("team") or "FA"))
+            name = escape_html(str(row.get("player") or "Unknown player"))
+            score = escape_html(str(projection_value(row, origin)))
             top = " top" if index == 1 else ""
             rows_html.append(
-                f"""
-<div class="fx-rec-row{top}">
-  <div class="fx-rec-rank">{index}</div>
-  <div>
-    <div class="fx-rec-name">{row["player"]}</div>
-    <div class="fx-rec-meta"><span class="fx-pos">{position}</span>{team}</div>
-  </div>
-  <div class="fx-rec-score">{score}</div>
-</div>
-"""
+                f'<div class="fx-rec-row{top}">'
+                f'<span class="fx-rec-rank">{index}</span>'
+                f'<span class="fx-rec-name">{name}</span>'
+                f'<span class="fx-rec-position"><span class="fx-pos">{position}</span></span>'
+                f'<span class="fx-rec-team">{team}</span>'
+                f'<span class="fx-rec-score">{score}</span>'
+                '</div>'
             )
-        st.markdown("".join(rows_html), unsafe_allow_html=True)
+        st.markdown('<div class="fx-rec-table">' + header + "".join(rows_html) + '</div>',
+                    unsafe_allow_html=True)
 
 
 def render_settings_form(league_id_hint: str = ""):
@@ -603,26 +608,42 @@ def live_dashboard(active_page: str):
     )
 
     if active_page == "overview":
-        render_page_header(title="Draft Overview", subtitle=APP_TAGLINE, live=True)
+        is_complete = draft_status in ("complete", "completed")
+        render_page_header(
+            title="Draft Overview",
+            subtitle=APP_TAGLINE,
+            live=not is_complete and draft_status in ("drafting", "in_progress"),
+        )
+        safe_league = escape_html(str(league_name))
+        safe_draft = escape_html(str(draft_id))
+        safe_league_id = escape_html(str(league_id or "n/a"))
+        safe_status = escape_html(str(draft_status).replace("_", " ").title())
         st.markdown(
-            f'<p class="fx-league-strip">{league_name} · Draft {draft_id} · '
-            f'League {league_id or "n/a"} · Lock-In scoring · Status: {draft_status}</p>',
+            '<div class="fx-league-card">'
+            f'<strong>{safe_league}</strong>'
+            f'<span>{teams or "—"} teams</span>'
+            '<span>Lock-In scoring</span>'
+            f'<span>Draft {safe_draft}</span>'
+            f'<span>League {safe_league_id}</span>'
+            f'<span>Status: {safe_status}</span>'
+            '</div>',
             unsafe_allow_html=True,
         )
-        m1, m2, m3 = st.columns(3, gap="medium")
-        m1.metric("Picks", len(picks))
-        m2.metric("Next", next_pick)
-        m3.metric("Teams", teams or "—")
+        m1, m2, m3, m4 = st.columns(4, gap="medium")
+        m1.metric("Picks completed", len(picks), border=False)
+        m2.metric("Next overall pick", "—" if is_complete else next_pick, border=False)
+        m3.metric("Draft teams", teams or "—", border=False)
+        m4.metric("Draft status", safe_status, border=False)
         st.caption(
             "Last checked: "
             + datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
             + f" · Refreshing every {refresh}s"
         )
-        if upcoming:
+        if upcoming and not is_complete:
             st.caption(
                 "Your upcoming picks (estimated): " + ", ".join(str(n) for n in upcoming[:5])
             )
-        elif my_user_id:
+        elif my_user_id and not is_complete:
             st.caption("No upcoming picks detected for your slot.")
 
         if my_user_id:

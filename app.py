@@ -73,6 +73,25 @@ def api_get(path):
     return r.json()
 
 
+@st.cache_data(ttl=10, show_spinner=False)
+def live_draft_snapshot(draft_id):
+    """Refresh live draft endpoints without clearing unrelated cached data."""
+    def fetch(path):
+        response = requests.get(
+            f"{API}/{path}",
+            timeout=12,
+            headers={"User-Agent": "SleeperNBADraftCopilot/1.0 personal use"},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    safe_id = quote(str(draft_id), safe="")
+    return (
+        fetch(f"draft/{safe_id}/picks"),
+        fetch(f"draft/{safe_id}"),
+    )
+
+
 @st.cache_data(ttl=86400, show_spinner=False)
 def player_map():
     return api_get("players/nba")
@@ -567,11 +586,10 @@ league_name = league.get("name") or "Connected Draft"
 @st.fragment(run_every=f"{refresh}s")
 def live_dashboard(active_page: str):
     try:
-        api_get.clear()
-        picks = api_get(f"draft/{quote(draft_id)}/picks") or []
+        picks, fresh_draft = live_draft_snapshot(draft_id)
+        picks = picks or []
         if not isinstance(picks, list):
             raise ValueError("Unexpected draft pick response")
-        fresh_draft = api_get(f"draft/{quote(draft_id)}")
     except Exception as e:
         st.error(f"Live picks unavailable: {e}")
         return

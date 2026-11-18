@@ -32,21 +32,21 @@ DARK = {
     "shadow": "0 10px 28px rgba(0, 0, 0, 0.45)",
 }
 
-# Light = same indigo family, inverted values (not a separate cream palette)
+# Light = same indigo family; white surfaces on cooler ground so modules read clearly
 LIGHT = {
-    "bg": "#EEF1F8",
-    "surface": "#E0E5F0",
-    "surface_raised": "#FFFFFF",
+    "bg": "#D8DEEC",
+    "surface": "#FFFFFF",
+    "surface_raised": "#F7F9FD",
     "ink": SHARED_INK_DARK,
-    "ink_muted": "#4A5573",
-    "border": "#A8B2C9",
+    "ink_muted": "#3F4A66",
+    "border": "#6E7C99",
     "accent": SHARED_ACCENT,
-    "accent_soft": "rgba(120, 177, 89, 0.16)",
+    "accent_soft": "rgba(120, 177, 89, 0.18)",
     "positive": "#2F6B3C",
     "gold": SHARED_GOLD,
-    "sidebar": "#E4E9F4",
+    "sidebar": "#CDD5E8",
     "input_bg": "#FFFFFF",
-    "shadow": "0 8px 24px rgba(18, 22, 34, 0.08)",
+    "shadow": "0 10px 28px rgba(18, 22, 34, 0.14)",
 }
 
 
@@ -69,7 +69,7 @@ def inject_css(mode: str | None = None) -> None:
     mode = mode or st.session_state.get("theme_mode", "dark")
     p = palette(mode)
     btn_fg = SHARED_INK_DARK if mode == "dark" else SHARED_INK_LIGHT
-    border_w = "1.5px" if mode == "dark" else "1px"
+    border_w = "1.5px" if mode == "dark" else "2px"
     st.markdown(
         f"""
 <style>
@@ -296,6 +296,11 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
   border-radius: 16px !important;
   box-shadow: var(--shadow);
   transition: var(--theme-ease) !important;
+  margin-bottom: 0.65rem !important;
+}}
+
+div[data-testid="stVerticalBlockBorderWrapper"] > div {{
+  background: transparent !important;
 }}
 
 .stTabs [data-baseweb="tab-list"] {{
@@ -431,45 +436,57 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
   transition: var(--theme-ease);
 }}
 
-/* Sidebar theme toggle — oversized, hard to miss */
-.fx-theme-label {{
-  font-family: var(--font);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--accent) !important;
-  margin: 0 0 0.35rem 0;
-}}
-
-.fx-theme-hint {{
-  font-family: var(--font);
-  font-size: 0.8rem;
-  color: var(--ink-muted) !important;
-  margin: 0.45rem 0 0 0;
-}}
-
+/* Sidebar theme toggle — big sun/moon swipe, no helper text */
 section[data-testid="stSidebar"] div[data-testid="stToggle"] {{
   justify-content: stretch;
   width: 100%;
+  margin: 0.25rem 0 0.9rem 0 !important;
 }}
 
 section[data-testid="stSidebar"] label[data-baseweb="checkbox"] {{
+  position: relative !important;
   width: 100% !important;
   min-width: 100% !important;
-  min-height: 56px !important;
-  background: linear-gradient(90deg, #EEF1F8 0%, #78B159 35%, #121622 68%, #D4AF37 100%) !important;
+  min-height: 68px !important;
+  background: linear-gradient(90deg, #F7F9FD 0%, #78B159 38%, #121622 72%, #D4AF37 100%) !important;
   border: 2px solid var(--accent) !important;
   border-radius: 999px !important;
-  padding: 7px !important;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14), 0 8px 22px rgba(0,0,0,0.28);
+  padding: 8px !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14), 0 10px 26px rgba(0,0,0,0.3);
+}}
+
+/* Sun (left) / moon (right) — makes the control read as a theme switch */
+section[data-testid="stSidebar"] label[data-baseweb="checkbox"]::before,
+section[data-testid="stSidebar"] label[data-baseweb="checkbox"]::after {{
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.35rem;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.95;
+}}
+
+section[data-testid="stSidebar"] label[data-baseweb="checkbox"]::before {{
+  content: "☀";
+  left: 18px;
+  color: #121622;
+}}
+
+section[data-testid="stSidebar"] label[data-baseweb="checkbox"]::after {{
+  content: "☾";
+  right: 20px;
+  color: #F7F9FD;
 }}
 
 section[data-testid="stSidebar"] label[data-baseweb="checkbox"] > div:first-child {{
   background: #FFFFFF !important;
-  width: 42px !important;
-  height: 42px !important;
-  box-shadow: 0 3px 12px rgba(0,0,0,0.35);
+  width: 52px !important;
+  height: 52px !important;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.38);
+  position: relative;
+  z-index: 2;
 }}
 
 section[data-testid="stSidebar"] div[data-testid="stToggle"] [data-testid="stWidgetLabel"] {{
@@ -487,21 +504,13 @@ hr {{
 
 
 def render_sidebar_theme_toggle() -> None:
-    """Oversized gradient swipe toggle at the top of the sidebar."""
-    mode = st.session_state.get("theme_mode", "dark")
-    hint = "Dark mode on" if mode == "dark" else "Light mode on"
-    with st.container(border=True):
-        st.markdown('<p class="fx-theme-label">Theme</p>', unsafe_allow_html=True)
-        st.toggle(
-            "Dark mode",
-            value=mode == "dark",
-            key="picky_theme_toggle",
-            label_visibility="collapsed",
-        )
-        st.markdown(
-            f'<p class="fx-theme-hint">{hint} · swipe to switch</p>',
-            unsafe_allow_html=True,
-        )
+    """Big sun/moon theme swipe — no accompanying text."""
+    st.toggle(
+        "Dark mode",
+        value=st.session_state.get("theme_mode", "dark") == "dark",
+        key="picky_theme_toggle",
+        label_visibility="collapsed",
+    )
 
 
 def render_hero(*, title: str, subtitle: str, live: bool = False) -> None:

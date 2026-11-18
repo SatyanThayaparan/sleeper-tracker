@@ -305,71 +305,53 @@ def render_top_recommendations(options, origin):
 def render_settings_form(league_id_hint: str = ""):
     render_page_header(
         title="Settings & Connections",
-        subtitle="Connect Sleeper, import projections, and tune ranking weights.",
+        subtitle="Set up Picky in a few steps. Recommended defaults work for beginners.",
         live=False,
     )
     with st.container(border=True):
-        st.markdown('<p class="fx-settings-title">Sleeper Connection</p>', unsafe_allow_html=True)
-        st.text_input(
-            "Your Sleeper draft link or ID",
-            key="cfg_draft_link",
-        )
-        st.text_input(
-            "League ID (automatically discovered from draft; optional)",
-            key="cfg_league_id",
-            placeholder="Optional override",
-        )
-        st.text_input(
-            "Your Sleeper username or user ID (optional)",
-            key="cfg_my_user",
-        )
-        st.select_slider(
-            "Pick refresh interval",
-            options=[10, 15, 30, 60],
-            key="cfg_refresh",
-            format_func=lambda x: f"{x} sec",
-        )
-        st.caption("Auto-refresh when a draft is connected. No Sleeper password required.")
-
+        st.markdown("### 1. Connect your Sleeper draft")
+        st.caption("Paste your Sleeper draft link to load the league and picks. No password needed.")
+        st.text_input("Sleeper draft link or ID", key="cfg_draft_link",
+                      help="Copy your draft URL directly from Sleeper.")
+        st.text_input("Sleeper username or user ID (optional)", key="cfg_my_user",
+                      help="Helps Picky account for players already on your roster.")
+        with st.expander("Additional connection options"):
+            st.text_input("League ID override (usually automatic)", key="cfg_league_id",
+                          placeholder="Optional override")
+            st.select_slider("Check for picks every", options=[10, 15, 30, 60],
+                             key="cfg_refresh", format_func=lambda x: f"{x} sec")
     with st.container(border=True):
-        st.markdown('<p class="fx-settings-title">Projections & Rankings</p>', unsafe_allow_html=True)
-        uploaded = st.file_uploader(
-            "Upload your player rankings or projections CSV",
-            type=["csv"],
-            key="cfg_upload",
-        )
-        st.download_button(
-            "Download Lock-In projection template",
-            data="player,projected_fppg,upside_fppg,floor_fppg,games_per_week,availability_pct\n",
-            file_name="lockin_projection_template.csv",
-            mime="text/csv",
-        )
-        st.caption(
-            "Optional CSV columns: upside_fppg, floor_fppg, games_per_week, availability_pct."
-        )
-
-    with st.container(border=True):
-        st.markdown('<p class="fx-settings-title">Advanced Preferences</p>', unsafe_allow_html=True)
-        st.slider("Lock-In upside emphasis (%)", 0, 80, key="cfg_upside", step=5)
-        st.slider("Consistency / floor emphasis (%)", 0, 60, key="cfg_safety", step=5)
-        st.slider("Injury status penalty (%)", 0, 50, key="cfg_risk", step=5)
-        st.slider("Open lineup fit bonus (%)", 0, 25, key="cfg_fit", step=1)
-        st.caption(
-            "Baseline is Hashtag Basketball ADP across Yahoo, ESPN, and Fantrax. "
-            "A projection CSV replaces the ADP baseline."
-        )
-
-    with st.container(border=True):
-        st.markdown('<p class="fx-settings-title">OpenAI</p>', unsafe_allow_html=True)
-        if openai_configured():
-            st.success("ChatGPT API key loaded from local secrets (.env / Streamlit secrets).")
-        else:
-            st.warning(
-                "No OPENAI_API_KEY found. Add it to a local `.env` or `.streamlit/secrets.toml` "
-                "(both are gitignored)."
+        st.markdown("### 2. Choose your rankings source")
+        st.caption("Picky uses an ADP blend automatically. Optionally upload your own projections.")
+        with st.expander("Custom projections (optional)"):
+            st.file_uploader("Player rankings or projections CSV", type=["csv"], key="cfg_upload")
+            st.download_button(
+                "Download Lock-In projection template",
+                data="player,projected_fppg,upside_fppg,floor_fppg,games_per_week,availability_pct\\n",
+                file_name="lockin_projection_template.csv", mime="text/csv",
             )
-        st.caption("The key never ships in git. For Streamlit Cloud, set the same secret in the app settings.")
-    return uploaded
+            st.caption("Optional columns: upside_fppg, floor_fppg, games_per_week, availability_pct.")
+    with st.container(border=True):
+        st.markdown("### 3. Recommendation preferences")
+        st.caption("Balanced (recommended): keep the current default weighting for upside, "
+                   "consistency, injury risk, and roster needs.")
+        with st.expander("Advanced ranking preferences"):
+            st.slider("Lock-In upside emphasis (%)", 0, 80, key="cfg_upside", step=5,
+                      help="Increase to emphasize potential big scoring performances.")
+            st.slider("Consistency / floor emphasis (%)", 0, 60, key="cfg_safety", step=5,
+                      help="Increase to favor consistent results.")
+            st.slider("Injury status penalty (%)", 0, 50, key="cfg_risk", step=5,
+                      help="Increase to weigh injury concerns more heavily.")
+            st.slider("Open lineup fit bonus (%)", 0, 25, key="cfg_fit", step=1,
+                      help="Increase to prioritize players who fill open starting positions.")
+        st.caption("An uploaded CSV replaces the ADP baseline.")
+    with st.expander("Developer options: OpenAI"):
+        if openai_configured():
+            st.success("API key loaded from secrets.")
+        else:
+            st.info("Optional: add OPENAI_API_KEY in local or Streamlit Cloud secrets.")
+        st.caption("Never commit an API key to Git.")
+    return st.session_state.get("cfg_upload")
 
 
 def render_help():

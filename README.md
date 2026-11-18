@@ -6,12 +6,11 @@
 
 ## Features
 
-- Dark indigo draft UI (matcha accent + gold)
-- Fixed sidebar pinned to the viewport; main content stays full width
-- Connect to a Sleeper draft by ID or URL
+- Dark 60/30/10 dashboard (emerald accent)
+- Sidebar navigation: Overview, Draft Board, Rankings, Reports, Settings, Help
+- Settings & Connections for draft link, projections CSV, and ranking weights
+- Live draft metrics, top recommendations, sleeper / fade cards
 - Auto-refresh picks while the browser session is open
-- Import custom projection CSVs (FPPG, upside/floor, availability)
-- Recommendation engine that accounts for roster needs, ADP, injury tags, and news headlines
 - Lock-In-friendly projection template included
 
 ## Tech stack

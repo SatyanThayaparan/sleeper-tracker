@@ -13,10 +13,8 @@ from theme import (
     APP_NAME,
     APP_TAGLINE,
     ICON_PATH,
-    init_theme,
     inject_css,
     render_hero,
-    render_sidebar_theme_toggle,
 )
 
 API = "https://api.sleeper.app/v1"
@@ -27,12 +25,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-init_theme()
-if "picky_theme_toggle" in st.session_state:
-    st.session_state.theme_mode = (
-        "dark" if st.session_state.picky_theme_toggle else "light"
-    )
-inject_css(st.session_state.theme_mode)
+inject_css()
 
 DEFAULT_DRAFT_ID = "1416933113287770112"
 DEFAULT_DRAFT_URL = "https://sleeper.com/draft/nba/1416933113287770112?ftue=commish"
@@ -320,7 +313,6 @@ def render_picks(board, roster_names, user_selected):
 
 
 with st.sidebar:
-    render_sidebar_theme_toggle()
     st.markdown("### Connect your draft")
     draft_link = st.text_input("Your Sleeper draft link or ID", value=DEFAULT_DRAFT_URL)
     draft_id_override = draft_id_from_link(draft_link)

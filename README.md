@@ -6,9 +6,8 @@
 
 ## Features
 
-- Fantasy draft UI with light / dark modes of one indigo palette (shared matcha accent + gold)
-- Banner theme swipe with a fade between modes
-- Overlay sidebar that does not shift the main page
+- Dark indigo draft UI (matcha accent + gold)
+- Fixed sidebar pinned to the viewport; main content stays full width
 - Connect to a Sleeper draft by ID or URL
 - Auto-refresh picks while the browser session is open
 - Import custom projection CSVs (FPPG, upside/floor, availability)
@@ -75,7 +74,7 @@ No API keys are required for read-only Sleeper draft polling. Apps on Community 
 ```text
 sleeper-tracker/
 ├── app.py                          # Streamlit UI (Picky)
-├── theme.py                        # Light / dark themes + banner
+├── theme.py                        # Dark theme + fixed sidebar CSS
 ├── assets/picky-icon.jpg           # dice cube icon
 ├── .streamlit/config.toml          # default Streamlit theme tokens
 ├── recommend.py                    # recommendation logic

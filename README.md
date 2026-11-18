@@ -1,13 +1,14 @@
-# Sors
+# Picky
 
-**Sors** (Latin: *lot* / casting lots) is a Streamlit draft board for Sleeper NBA fantasy leagues — live pick tracking, projections, and pick recommendations.
+**Picky** is a Streamlit draft board for Sleeper NBA fantasy leagues — live pick tracking, projections, and pick recommendations.
 
 **Live app:** [satyanthayaparan-sleeper-tracker-app-pmaj1x.streamlit.app](https://satyanthayaparan-sleeper-tracker-app-pmaj1x.streamlit.app)
 
 ## Features
 
-- Fantasy draft UI with light / dark themes (60-30-10 cream·charcoal·vermilion / indigo·slate·matcha)
-- Banner theme swipe toggle
+- Fantasy draft UI with light / dark modes of one indigo palette (shared matcha accent + gold)
+- Banner theme swipe with a fade between modes
+- Overlay sidebar that does not shift the main page
 - Connect to a Sleeper draft by ID or URL
 - Auto-refresh picks while the browser session is open
 - Import custom projection CSVs (FPPG, upside/floor, availability)
@@ -73,9 +74,9 @@ No API keys are required for read-only Sleeper draft polling. Apps on Community 
 
 ```text
 sleeper-tracker/
-├── app.py                          # Streamlit UI (Sors)
+├── app.py                          # Streamlit UI (Picky)
 ├── theme.py                        # Light / dark themes + banner
-├── assets/sors-icon.jpg            # app icon
+├── assets/picky-icon.jpg           # dice cube icon
 ├── .streamlit/config.toml          # default Streamlit theme tokens
 ├── recommend.py                    # recommendation logic
 ├── adp.py                          # ADP helpers

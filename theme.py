@@ -1,4 +1,4 @@
-"""Sors themes — Light / Dark with shared Sora styling."""
+"""Picky themes — one indigo family, light and dark variants."""
 
 from __future__ import annotations
 
@@ -6,40 +6,47 @@ from pathlib import Path
 
 import streamlit as st
 
-APP_NAME = "Sors"
+APP_NAME = "Picky"
 APP_TAGLINE = "Fantasy draft board · Lock-In redraft copilot"
-ICON_PATH = Path(__file__).resolve().parent / "assets" / "sors-icon.jpg"
+ICON_PATH = Path(__file__).resolve().parent / "assets" / "picky-icon.jpg"
 
-LIGHT = {
-    "bg": "#F4F1EA",
-    "surface": "#E8E2D8",
-    "surface_raised": "#FFFcf7",
-    "ink": "#2B2B2B",
-    "ink_muted": "#5A564F",
-    "border": "#BDB5A8",
-    "accent": "#D93829",
-    "accent_soft": "rgba(217, 56, 41, 0.14)",
-    "positive": "#2F6B52",
-    "gold": "#A67C00",
-    "sidebar": "#E8E2D8",
-    "input_bg": "#FFFcf7",
-    "shadow": "0 8px 24px rgba(43, 43, 43, 0.08)",
-}
+# Shared across both modes
+SHARED_ACCENT = "#78B159"
+SHARED_GOLD = "#D4AF37"
+SHARED_INK_DARK = "#121622"
+SHARED_INK_LIGHT = "#E8ECF5"
 
 DARK = {
     "bg": "#121622",
     "surface": "#1E2436",
     "surface_raised": "#2A3148",
-    "ink": "#E8ECF5",
+    "ink": SHARED_INK_LIGHT,
     "ink_muted": "#A7B0C5",
     "border": "#6B7899",
-    "accent": "#78B159",
+    "accent": SHARED_ACCENT,
     "accent_soft": "rgba(120, 177, 89, 0.18)",
-    "positive": "#78B159",
-    "gold": "#D4AF37",
+    "positive": SHARED_ACCENT,
+    "gold": SHARED_GOLD,
     "sidebar": "#0F131F",
     "input_bg": "#1A2032",
     "shadow": "0 10px 28px rgba(0, 0, 0, 0.45)",
+}
+
+# Light = same indigo family, inverted values (not a separate cream palette)
+LIGHT = {
+    "bg": "#EEF1F8",
+    "surface": "#E0E5F0",
+    "surface_raised": "#FFFFFF",
+    "ink": SHARED_INK_DARK,
+    "ink_muted": "#4A5573",
+    "border": "#A8B2C9",
+    "accent": SHARED_ACCENT,
+    "accent_soft": "rgba(120, 177, 89, 0.16)",
+    "positive": "#2F6B3C",
+    "gold": SHARED_GOLD,
+    "sidebar": "#E4E9F4",
+    "input_bg": "#FFFFFF",
+    "shadow": "0 8px 24px rgba(18, 22, 34, 0.08)",
 }
 
 
@@ -61,7 +68,7 @@ def palette(mode: str | None = None) -> dict[str, str]:
 def inject_css(mode: str | None = None) -> None:
     mode = mode or st.session_state.get("theme_mode", "dark")
     p = palette(mode)
-    btn_fg = "#121622" if mode == "dark" else "#F4F1EA"
+    btn_fg = SHARED_INK_DARK if mode == "dark" else SHARED_INK_LIGHT
     border_w = "1.5px" if mode == "dark" else "1px"
     st.markdown(
         f"""
@@ -84,41 +91,69 @@ def inject_css(mode: str | None = None) -> None:
   --shadow: {p["shadow"]};
   --font: "Sora", system-ui, sans-serif;
   --border-w: {border_w};
+  --theme-ease: background-color 0.45s ease, color 0.45s ease,
+                 border-color 0.45s ease, box-shadow 0.45s ease,
+                 fill 0.45s ease;
 }}
 
 html, body, [data-testid="stAppViewContainer"], .stApp {{
   background: var(--bg) !important;
   color: var(--ink) !important;
   font-family: var(--font) !important;
+  transition: var(--theme-ease) !important;
 }}
 
 [data-testid="stHeader"] {{
   background: transparent !important;
+  transition: var(--theme-ease) !important;
 }}
 
-/* Keep Material icon font intact (prevents "keyboard_double_arrow" text leak) */
+/* Keep Material icon font intact (prevents ligature text leaks) */
 [data-testid="stIconMaterial"],
 span[data-testid="stIconMaterial"],
 .material-icons,
-.material-symbols-rounded {{
-  font-family: "Material Symbols Rounded", "Material Icons", sans-serif !important;
+.material-symbols-rounded,
+.material-symbols-outlined {{
+  font-family: "Material Symbols Rounded", "Material Symbols Outlined",
+    "Material Icons", sans-serif !important;
   font-style: normal !important;
   letter-spacing: normal !important;
   text-transform: none !important;
 }}
 
+/* Overlay sidebar — does not shift main content */
 section[data-testid="stSidebar"] {{
+  position: fixed !important;
+  left: 0 !important;
+  top: 0 !important;
+  height: 100vh !important;
+  z-index: 1000 !important;
   background: var(--sidebar) !important;
   border-right: var(--border-w) solid var(--border) !important;
+  box-shadow: 8px 0 28px rgba(0, 0, 0, 0.28);
+  transition: var(--theme-ease), transform 0.25s ease !important;
 }}
 
 section[data-testid="stSidebar"] > div:first-child,
 section[data-testid="stSidebar"] [data-testid="stSidebarContent"],
 section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {{
   background: var(--sidebar) !important;
+  transition: var(--theme-ease) !important;
 }}
 
-/* Kill Streamlit default cream/teal leaks in dark sidebar */
+/* Keep main stage full-width whether sidebar is open or closed */
+section.main,
+[data-testid="stAppViewContainer"] > .main,
+div[data-testid="stAppViewContainer"] section.main {{
+  margin-left: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}}
+
+[data-testid="stSidebarCollapsedControl"] {{
+  z-index: 1001 !important;
+}}
+
 section[data-testid="stSidebar"] [data-testid="stAlert"] {{
   background: var(--surface) !important;
   color: var(--ink) !important;
@@ -153,6 +188,7 @@ section[data-testid="stSidebar"] textarea {{
   border: var(--border-w) solid var(--border) !important;
   border-radius: 10px !important;
   box-shadow: none !important;
+  transition: var(--theme-ease) !important;
 }}
 
 section[data-testid="stSidebar"] [data-baseweb="base-input"],
@@ -169,16 +205,27 @@ section[data-testid="stSidebar"] [data-baseweb="base-input"] input::placeholder 
   opacity: 0.9;
 }}
 
-/* File uploader — light touch so Browse button stays intact */
+/*
+  File uploader — do NOT set font-family on inner spans
+  (that turns Material "upload" ligatures into the word "upload").
+*/
+[data-testid="stFileUploader"] {{
+  width: 100%;
+}}
+
 [data-testid="stFileUploaderDropzone"] {{
   background-color: var(--input-bg) !important;
   border: var(--border-w) dashed var(--border) !important;
   border-radius: 12px !important;
   color: var(--ink-muted) !important;
+  transition: var(--theme-ease) !important;
 }}
 
-[data-testid="stFileUploaderDropzone"] small,
-[data-testid="stFileUploaderDropzone"] span {{
+[data-testid="stFileUploaderDropzone"] > div {{
+  color: var(--ink-muted) !important;
+}}
+
+[data-testid="stFileUploaderDropzone"] small {{
   color: var(--ink-muted) !important;
   font-family: var(--font) !important;
 }}
@@ -188,7 +235,14 @@ section[data-testid="stSidebar"] [data-baseweb="base-input"] input::placeholder 
   color: var(--ink) !important;
   border: var(--border-w) solid var(--border) !important;
   border-radius: 8px !important;
-  font-family: var(--font) !important;
+}}
+
+[data-testid="stFileUploaderDropzone"] button [data-testid="stIconMaterial"],
+[data-testid="stFileUploaderDropzone"] button .material-icons,
+[data-testid="stFileUploaderDropzone"] button .material-symbols-rounded,
+[data-testid="stFileUploaderDropzone"] button .material-symbols-outlined {{
+  font-family: "Material Symbols Rounded", "Material Symbols Outlined",
+    "Material Icons", sans-serif !important;
 }}
 
 .block-container {{
@@ -204,6 +258,7 @@ h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {{
   color: var(--ink) !important;
   letter-spacing: -0.02em;
   font-weight: 600 !important;
+  transition: var(--theme-ease) !important;
 }}
 
 p, label, .stCaption, [data-testid="stCaptionContainer"] {{
@@ -222,6 +277,7 @@ div[data-testid="stMetric"] {{
   border-radius: 14px;
   padding: 0.75rem 0.9rem;
   box-shadow: var(--shadow);
+  transition: var(--theme-ease) !important;
 }}
 
 div[data-testid="stMetric"] label {{
@@ -239,6 +295,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
   border: var(--border-w) solid var(--border) !important;
   border-radius: 16px !important;
   box-shadow: var(--shadow);
+  transition: var(--theme-ease) !important;
 }}
 
 .stTabs [data-baseweb="tab-list"] {{
@@ -247,6 +304,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
   padding: 0.35rem;
   border-radius: 12px;
   border: var(--border-w) solid var(--border);
+  transition: var(--theme-ease) !important;
 }}
 
 .stTabs [data-baseweb="tab"] {{
@@ -268,6 +326,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
   font-weight: 600 !important;
   font-family: var(--font) !important;
   box-shadow: var(--shadow);
+  transition: var(--theme-ease) !important;
 }}
 
 .stDownloadButton > button {{
@@ -276,6 +335,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
   border: var(--border-w) solid var(--border) !important;
   border-radius: 999px !important;
   font-family: var(--font) !important;
+  transition: var(--theme-ease) !important;
 }}
 
 .stSlider [data-baseweb="slider"] div[role="slider"] {{
@@ -286,6 +346,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
   border-radius: 12px !important;
   border: var(--border-w) solid var(--border) !important;
   background: var(--surface) !important;
+  transition: var(--theme-ease) !important;
 }}
 
 .stDataFrame, [data-testid="stDataFrame"] {{
@@ -367,9 +428,10 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
   padding: 0.85rem 1rem;
   box-shadow: var(--shadow);
   margin-bottom: 0.75rem;
+  transition: var(--theme-ease);
 }}
 
-/* Banner theme toggle — large swipe with palette gradient */
+/* Banner theme toggle — indigo family gradient */
 .fx-theme-slot div[data-testid="stToggle"] {{
   justify-content: flex-end;
 }}
@@ -377,7 +439,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
 .fx-theme-slot label[data-baseweb="checkbox"] {{
   min-width: 64px !important;
   min-height: 36px !important;
-  background: linear-gradient(90deg, #F4F1EA 0%, #D93829 45%, #121622 70%, #78B159 100%) !important;
+  background: linear-gradient(90deg, #EEF1F8 0%, #78B159 40%, #121622 70%, #D4AF37 100%) !important;
   border: var(--border-w) solid var(--border) !important;
   border-radius: 999px !important;
   padding: 4px !important;
@@ -386,7 +448,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
 }}
 
 .fx-theme-slot label[data-baseweb="checkbox"] > div:first-child {{
-  background: #FFFcf7 !important;
+  background: #FFFFFF !important;
   width: 28px !important;
   height: 28px !important;
   box-shadow: 0 2px 8px rgba(0,0,0,0.25);
@@ -398,6 +460,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
 
 hr {{
   border-color: var(--border) !important;
+  transition: var(--theme-ease) !important;
 }}
 </style>
 """,
@@ -411,7 +474,7 @@ def render_banner_theme_toggle() -> None:
     st.toggle(
         "Dark mode",
         value=st.session_state.theme_mode == "dark",
-        key="sors_theme_toggle",
+        key="picky_theme_toggle",
         label_visibility="collapsed",
     )
     st.markdown("</div>", unsafe_allow_html=True)

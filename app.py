@@ -28,9 +28,9 @@ st.set_page_config(
 )
 init_theme()
 # Widget state is restored before render — sync theme before CSS inject.
-if "sors_theme_toggle" in st.session_state:
+if "picky_theme_toggle" in st.session_state:
     st.session_state.theme_mode = (
-        "dark" if st.session_state.sors_theme_toggle else "light"
+        "dark" if st.session_state.picky_theme_toggle else "light"
     )
 inject_css(st.session_state.theme_mode)
 

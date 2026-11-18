@@ -449,6 +449,23 @@ div[data-testid="stMetric"] [data-testid="stMetricValue"] {
   overflow: hidden;
 }
 
+/* Structured draft activity rows */
+.fx-activity-row {
+  display:flex; align-items:center; gap:14px;
+  padding:13px 16px; margin:8px 0;
+  border-radius:12px; border:1px solid var(--color-border);
+  background:var(--color-surface); color:var(--color-text-primary);
+}
+.fx-activity-number {
+  display:flex; align-items:center; justify-content:center;
+  width:42px; min-width:42px; height:40px; border-radius:10px;
+  font-weight:700; font-variant-numeric:tabular-nums;
+  background:var(--color-surface-raised); color:var(--color-accent);
+}
+.fx-activity-row strong { display:block; font-size:14px; }
+.fx-activity-row small { display:block; color:var(--color-text-secondary);
+  font-size:12px; margin-top:4px; }
+
 /* Page chrome */
 .fx-page-header {
   display: flex;

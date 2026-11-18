@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from html import escape
 
 import streamlit as st
 
@@ -92,6 +93,43 @@ span[data-testid="stIconMaterial"],
   padding-left: var(--space-6) !important;
   padding-right: var(--space-6) !important;
   max-width: 1440px !important;
+}
+
+/* Preview-inspired navigation rows: controls behave as buttons but read as links. */
+.fx-brand { display:flex; align-items:center; gap:10px; margin:0 0 12px; padding: 0 0 8px; }
+.fx-brand-icon { width:36px; height:36px; flex-shrink:0; border-radius:9px;
+  background:var(--color-accent); display:flex; align-items:center; justify-content:center; }
+.fx-brand-name { font-size:17px; font-weight:700; }
+.fx-nav-divider { height:1px; background:var(--color-border); margin: 12px 0; }
+.fx-utility-divider { margin-top:24px; }
+section[data-testid="stSidebar"] [class*="st-key-nav_"] {
+  margin-bottom: 3px;
+}
+section[data-testid="stSidebar"] [class*="st-key-nav_"] button {
+  display:flex !important; justify-content:flex-start !important; gap:12px !important;
+  width:100%; min-height:42px !important; padding:9px 12px !important;
+  border:0 !important; border-radius:8px !important; box-shadow:none !important;
+  background:transparent !important; color:var(--color-text-secondary) !important;
+  font-size:13px !important; font-weight:500 !important; text-align:left !important;
+  transition:background-color .15s ease, color .15s ease;
+}
+section[data-testid="stSidebar"] [class*="st-key-nav_"] button:hover {
+  background:var(--color-surface-hover) !important;
+  color:var(--color-text-primary) !important;
+}
+section[data-testid="stSidebar"] [class*="st-key-nav_"] button:focus-visible {
+  outline:2px solid var(--color-accent) !important; outline-offset:2px;
+}
+section[data-testid="stSidebar"] [class*="st-key-nav_"] button [data-testid="stIconMaterial"] {
+  color:var(--color-text-secondary) !important; font-size:18px !important;
+}
+@keyframes fx-page-in {
+  from { opacity: .65; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+[class*="st-key-view_"] { animation: fx-page-in .2s ease-out both; }
+@media (prefers-reduced-motion:reduce) {
+  [class*="st-key-view_"] { animation:none !important; }
 }
 
 /* Sidebar shell */
@@ -589,22 +627,29 @@ hr { border-color: var(--color-border) !important; }
 
 
 def render_sidebar_brand() -> None:
-    if ICON_PATH.is_file():
-        c1, c2 = st.columns([0.28, 0.72], vertical_alignment="center")
-        with c1:
-            st.markdown('<div class="fx-brand-wrap">', unsafe_allow_html=True)
-            st.image(str(ICON_PATH), width=40)
-            st.markdown("</div>", unsafe_allow_html=True)
-        with c2:
-            st.markdown(
-                f'<div class="fx-brand-name">{APP_NAME}</div>',
-                unsafe_allow_html=True,
-            )
-    else:
-        st.markdown(
-            f'<div class="fx-brand"><span class="fx-brand-name">{APP_NAME}</span></div>',
-            unsafe_allow_html=True,
-        )
+    """Compact, resolution-independent green dice mark from the layout preview."""
+    st.markdown(
+        f"""
+<div class="fx-brand">
+  <span class="fx-brand-icon" aria-hidden="true">
+    <svg width="25" height="25" viewBox="0 0 32 32" fill="none"
+         xmlns="http://www.w3.org/2000/svg">
+      <rect x="11" y="3.5" width="16.5" height="16.5" rx="4"
+            stroke="#0F3428" stroke-width="2.2" transform="rotate(10 19 12)"/>
+      <rect x="4.5" y="10.5" width="17" height="17" rx="4"
+            fill="#38B979" stroke="#0F3428" stroke-width="2.2"/>
+      <circle cx="9.7" cy="15.7" r="1.65" fill="#0F3428"/>
+      <circle cx="16.4" cy="22.3" r="1.65" fill="#0F3428"/>
+      <circle cx="13" cy="19" r="1.65" fill="#0F3428"/>
+      <circle cx="20.6" cy="9" r="1.4" fill="#0F3428"/>
+      <circle cx="24" cy="14.2" r="1.4" fill="#0F3428"/>
+    </svg>
+  </span>
+  <span class="fx-brand-name">{escape(APP_NAME)}</span>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
 
 
 def render_connection_card(

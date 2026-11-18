@@ -9,20 +9,29 @@ import feedparser
 
 from adp import ADP_URL, fetch_adp_rows, match_adp
 from recommend import build_recommendations
-from theme import init_theme, inject_css, palette, render_hero, set_theme
+from theme import (
+    APP_NAME,
+    APP_TAGLINE,
+    ICON_PATH,
+    init_theme,
+    inject_css,
+    palette,
+    render_hero,
+    render_theme_toggle,
+)
 
 API = "https://api.sleeper.app/v1"
+_page_icon = str(ICON_PATH) if ICON_PATH.is_file() else "🏀"
 st.set_page_config(
-    page_title="Sleeper Draft Board",
-    page_icon="🏀",
+    page_title=f"{APP_NAME} · Draft Board",
+    page_icon=_page_icon,
     layout="wide",
     initial_sidebar_state="expanded",
 )
+init_theme()
 
 DEFAULT_DRAFT_ID = "1416933113287770112"
 DEFAULT_DRAFT_URL = "https://sleeper.com/draft/nba/1416933113287770112?ftue=commish"
-
-init_theme()
 
 
 def draft_id_from_link(value):
@@ -307,17 +316,17 @@ def render_picks(board, roster_names, user_selected):
 
 
 with st.sidebar:
-    st.markdown("### Appearance")
-    mode_label = st.radio(
-        "Theme",
-        options=["Washi & Sumi (Light)", "Midnight Shibuya (Dark)"],
-        index=0 if st.session_state.theme_mode == "light" else 1,
-        label_visibility="collapsed",
-    )
-    set_theme("dark" if "Dark" in mode_label else "light")
+    if ICON_PATH.is_file():
+        brand_l, brand_r = st.columns([0.22, 0.78], vertical_alignment="center")
+        with brand_l:
+            st.image(str(ICON_PATH), width=40)
+        with brand_r:
+            st.markdown(f"**{APP_NAME}**")
+            st.caption(palette()["name"])
+    else:
+        st.markdown(f"**{APP_NAME}**")
+    render_theme_toggle()
     inject_css(st.session_state.theme_mode)
-    theme_name = palette()["name"]
-    st.caption(f"Active palette · {theme_name}")
     st.divider()
 
     st.markdown("### Connect your draft")
@@ -359,8 +368,8 @@ with st.sidebar:
     )
 
 render_hero(
-    title="Sleeper Draft Board",
-    subtitle="Lock-In redraft copilot · Hashtag Basketball ADP · roster fit · ESPN and news tone — advisory only; make picks in Sleeper.",
+    title=APP_NAME,
+    subtitle=f"{APP_TAGLINE} · Hashtag Basketball ADP · roster fit · ESPN and news tone — advisory only; make picks in Sleeper.",
     live=bool(league_id or draft_id_override),
 )
 

@@ -1,23 +1,30 @@
-"""Fantasy draft themes — Washi & Sumi (light) / Midnight Shibuya (dark)."""
+"""Hanko themes — Washi & Sumi (light) / Midnight Shibuya (dark), shared Sora styling."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import streamlit as st
+
+APP_NAME = "Hanko"
+APP_TAGLINE = "Fantasy draft board · Lock-In redraft copilot"
+ICON_PATH = Path(__file__).resolve().parent / "assets" / "hanko-icon.jpg"
 
 LIGHT = {
     "name": "Washi & Sumi",
     "bg": "#F4F1EA",
-    "surface": "#E2DDD3",
-    "surface_raised": "#FAF8F4",
+    "surface": "#E8E2D8",
+    "surface_raised": "#FFFcf7",
     "ink": "#2B2B2B",
-    "ink_muted": "#5C5852",
-    "border": "#D4CFC4",
+    "ink_muted": "#5A564F",
+    "border": "#CFC8BC",
     "accent": "#D93829",
-    "accent_soft": "rgba(217, 56, 41, 0.12)",
+    "accent_soft": "rgba(217, 56, 41, 0.14)",
     "positive": "#2F6B52",
-    "gold": "#B8860B",
-    "sidebar": "#EDE8DF",
-    "shadow": "0 10px 30px rgba(43, 43, 43, 0.08)",
+    "gold": "#A67C00",
+    "sidebar": "#EDE7DC",
+    "input_bg": "#FFFcf7",
+    "shadow": "0 8px 24px rgba(43, 43, 43, 0.07)",
 }
 
 DARK = {
@@ -33,13 +40,14 @@ DARK = {
     "positive": "#78B159",
     "gold": "#D4AF37",
     "sidebar": "#161B2A",
-    "shadow": "0 12px 36px rgba(0, 0, 0, 0.35)",
+    "input_bg": "#1A2032",
+    "shadow": "0 10px 28px rgba(0, 0, 0, 0.35)",
 }
 
 
 def init_theme() -> str:
     if "theme_mode" not in st.session_state:
-        st.session_state.theme_mode = "light"
+        st.session_state.theme_mode = "dark"
     return st.session_state.theme_mode
 
 
@@ -48,16 +56,18 @@ def set_theme(mode: str) -> None:
 
 
 def palette(mode: str | None = None) -> dict[str, str]:
-    mode = mode or st.session_state.get("theme_mode", "light")
+    mode = mode or st.session_state.get("theme_mode", "dark")
     return DARK if mode == "dark" else LIGHT
 
 
 def inject_css(mode: str | None = None) -> None:
+    mode = mode or st.session_state.get("theme_mode", "dark")
     p = palette(mode)
+    btn_fg = "#121622" if mode == "dark" else "#F4F1EA"
     st.markdown(
         f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Sora:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap');
 
 :root {{
   --bg: {p["bg"]};
@@ -71,55 +81,120 @@ def inject_css(mode: str | None = None) -> None:
   --positive: {p["positive"]};
   --gold: {p["gold"]};
   --sidebar: {p["sidebar"]};
+  --input-bg: {p["input_bg"]};
   --shadow: {p["shadow"]};
-  --font-display: {"Fraunces" if (mode or st.session_state.get("theme_mode","light")) == "light" else "Sora"}, Georgia, serif;
-  --font-body: {"IBM Plex Sans" if (mode or st.session_state.get("theme_mode","light")) == "light" else "Sora"}, system-ui, sans-serif;
+  --font: "Sora", system-ui, sans-serif;
 }}
 
 html, body, [data-testid="stAppViewContainer"], .stApp {{
   background: var(--bg) !important;
   color: var(--ink) !important;
-  font-family: var(--font-body) !important;
+  font-family: var(--font) !important;
 }}
 
 [data-testid="stHeader"] {{
   background: transparent !important;
 }}
 
-[data-testid="stSidebar"] {{
+section[data-testid="stSidebar"] {{
   background: var(--sidebar) !important;
   border-right: 1px solid var(--border) !important;
 }}
 
-[data-testid="stSidebar"] * {{
+section[data-testid="stSidebar"] > div {{
+  background: var(--sidebar) !important;
+}}
+
+section[data-testid="stSidebar"] * {{
+  font-family: var(--font) !important;
+}}
+
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] .stMarkdown {{
   color: var(--ink) !important;
 }}
 
-.block-container {{
-  padding-top: 1.4rem !important;
-  padding-bottom: 3rem !important;
-  max-width: 1200px !important;
-}}
-
-h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {{
-  font-family: var(--font-display) !important;
+/* Inputs — force readable ink on raised fields */
+section[data-testid="stSidebar"] input,
+section[data-testid="stSidebar"] textarea,
+.stTextInput input,
+.stNumberInput input,
+.stTextArea textarea {{
+  background-color: var(--input-bg) !important;
   color: var(--ink) !important;
-  letter-spacing: -0.02em;
+  -webkit-text-fill-color: var(--ink) !important;
+  caret-color: var(--ink) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
 }}
 
-p, span, label, .stCaption, [data-testid="stCaption"] {{
+section[data-testid="stSidebar"] [data-baseweb="base-input"],
+section[data-testid="stSidebar"] [data-baseweb="input"],
+section[data-testid="stSidebar"] [data-baseweb="select"] > div {{
+  background-color: var(--input-bg) !important;
+  color: var(--ink) !important;
+  border-color: var(--border) !important;
+  border-radius: 12px !important;
+}}
+
+section[data-testid="stSidebar"] [data-baseweb="base-input"] input,
+section[data-testid="stSidebar"] [data-baseweb="select"] span {{
+  color: var(--ink) !important;
+  -webkit-text-fill-color: var(--ink) !important;
+}}
+
+section[data-testid="stSidebar"] [data-baseweb="base-input"] input::placeholder {{
+  color: var(--ink-muted) !important;
+  -webkit-text-fill-color: var(--ink-muted) !important;
+  opacity: 0.85;
+}}
+
+/* File uploader */
+section[data-testid="stSidebar"] [data-testid="stFileUploader"] section,
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {{
+  background: var(--input-bg) !important;
+  border: 1px dashed var(--border) !important;
+  color: var(--ink) !important;
+}}
+
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] * {{
   color: var(--ink-muted) !important;
 }}
 
-.stMarkdown, .stText, .stDataFrame {{
+.block-container {{
+  padding-top: 1rem !important;
+  padding-bottom: 2rem !important;
+  padding-left: 1.5rem !important;
+  padding-right: 1.5rem !important;
+  max-width: 1600px !important;
+}}
+
+h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {{
+  font-family: var(--font) !important;
+  color: var(--ink) !important;
+  letter-spacing: -0.02em;
+  font-weight: 600 !important;
+}}
+
+p, label, .stCaption, [data-testid="stCaptionContainer"] {{
+  color: var(--ink-muted) !important;
+  font-family: var(--font) !important;
+}}
+
+.stMarkdown, .stText {{
   color: var(--ink) !important;
 }}
 
 div[data-testid="stMetric"] {{
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  padding: 0.7rem 0.85rem;
   box-shadow: var(--shadow);
 }}
 
@@ -129,27 +204,29 @@ div[data-testid="stMetric"] label {{
 
 div[data-testid="stMetric"] [data-testid="stMetricValue"] {{
   color: var(--ink) !important;
-  font-family: var(--font-display) !important;
+  font-family: var(--font) !important;
+  font-size: 1.35rem !important;
 }}
 
 div[data-testid="stVerticalBlockBorderWrapper"] {{
   background: var(--surface) !important;
   border: 1px solid var(--border) !important;
-  border-radius: 18px !important;
+  border-radius: 16px !important;
   box-shadow: var(--shadow);
 }}
 
 .stTabs [data-baseweb="tab-list"] {{
-  gap: 0.35rem;
+  gap: 0.3rem;
   background: var(--surface);
-  padding: 0.35rem;
-  border-radius: 14px;
+  padding: 0.3rem;
+  border-radius: 12px;
   border: 1px solid var(--border);
 }}
 
 .stTabs [data-baseweb="tab"] {{
-  border-radius: 10px !important;
+  border-radius: 9px !important;
   color: var(--ink-muted) !important;
+  font-family: var(--font) !important;
 }}
 
 .stTabs [aria-selected="true"] {{
@@ -159,15 +236,12 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
 
 .stButton > button {{
   background: var(--accent) !important;
-  color: {"#F4F1EA" if (mode or st.session_state.get("theme_mode","light")) == "light" else "#121622"} !important;
+  color: {btn_fg} !important;
   border: none !important;
   border-radius: 999px !important;
   font-weight: 600 !important;
+  font-family: var(--font) !important;
   box-shadow: var(--shadow);
-}}
-
-.stButton > button:hover {{
-  filter: brightness(1.05);
 }}
 
 .stDownloadButton > button {{
@@ -175,15 +249,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
   color: var(--ink) !important;
   border: 1px solid var(--border) !important;
   border-radius: 999px !important;
-}}
-
-.stTextInput input, .stSelectbox div[data-baseweb="select"] > div,
-.stMultiSelect div[data-baseweb="select"] > div,
-.stNumberInput input {{
-  background: var(--surface-raised) !important;
-  color: var(--ink) !important;
-  border-radius: 12px !important;
-  border-color: var(--border) !important;
+  font-family: var(--font) !important;
 }}
 
 .stSlider [data-baseweb="slider"] div[role="slider"] {{
@@ -191,104 +257,164 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
 }}
 
 .stAlert {{
-  border-radius: 14px !important;
+  border-radius: 12px !important;
   border: 1px solid var(--border) !important;
 }}
 
 .stDataFrame, [data-testid="stDataFrame"] {{
   border: 1px solid var(--border) !important;
-  border-radius: 14px !important;
+  border-radius: 12px !important;
   overflow: hidden;
 }}
 
+/* Brand hero */
 .fx-hero {{
   background:
-    radial-gradient(1200px 280px at 10% -20%, var(--accent-soft), transparent 60%),
+    radial-gradient(900px 220px at 8% -30%, var(--accent-soft), transparent 55%),
     linear-gradient(180deg, var(--surface-raised), var(--surface));
   border: 1px solid var(--border);
-  border-radius: 24px;
-  padding: 1.35rem 1.5rem 1.2rem;
-  margin-bottom: 1.1rem;
+  border-radius: 18px;
+  padding: 1rem 1.25rem 0.95rem;
+  margin-bottom: 0.85rem;
   box-shadow: var(--shadow);
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}}
+
+.fx-hero-icon {{
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}}
+
+.fx-hero-copy {{
+  min-width: 0;
 }}
 
 .fx-kicker {{
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.78rem;
+  gap: 0.35rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--accent) !important;
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.25rem;
 }}
 
 .fx-hero h1 {{
-  margin: 0 0 0.35rem 0 !important;
-  font-size: clamp(1.7rem, 2.4vw, 2.35rem) !important;
+  margin: 0 0 0.2rem 0 !important;
+  font-size: clamp(1.45rem, 2vw, 1.9rem) !important;
   color: var(--ink) !important;
+  font-family: var(--font) !important;
 }}
 
 .fx-hero p {{
   margin: 0 !important;
   color: var(--ink-muted) !important;
-  max-width: 52rem;
+  font-size: 0.92rem;
 }}
 
 .fx-live {{
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  margin-top: 0.9rem;
-  padding: 0.35rem 0.75rem;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+  padding: 0.28rem 0.65rem;
   border-radius: 999px;
   background: var(--accent-soft);
   color: var(--accent) !important;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 600;
 }}
 
 .fx-live-dot {{
-  width: 0.55rem;
-  height: 0.55rem;
+  width: 0.45rem;
+  height: 0.45rem;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-soft);
-  animation: pulse 1.6s ease-in-out infinite;
-}}
-
-@keyframes pulse {{
-  0%, 100% {{ transform: scale(1); opacity: 1; }}
-  50% {{ transform: scale(0.85); opacity: 0.7; }}
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }}
 
 .fx-rank {{
   display: inline-block;
-  margin-left: 0.35rem;
-  padding: 0.1rem 0.45rem;
+  margin-left: 0.3rem;
+  padding: 0.08rem 0.4rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--gold) 22%, transparent);
+  background: color-mix(in srgb, var(--gold) 24%, transparent);
   color: var(--gold) !important;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }}
 
 .fx-section-label {{
-  font-family: var(--font-display);
-  font-size: 1.15rem;
-  margin: 0.4rem 0 0.75rem;
+  font-family: var(--font);
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0.2rem 0 0.55rem;
   color: var(--ink) !important;
+}}
+
+/* Theme swipe toggle */
+.fx-theme-wrap {{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}}
+
+.fx-theme-label {{
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink) !important;
+}}
+
+div[data-testid="stSidebar"] div[data-testid="stToggle"] {{
+  justify-content: flex-end;
+}}
+
+div[data-testid="stSidebar"] label[data-baseweb="checkbox"] {{
+  background: var(--input-bg) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 999px !important;
+  padding: 0.15rem !important;
+}}
+
+div[data-testid="stSidebar"] label[data-baseweb="checkbox"] > div:first-child {{
+  background: var(--accent) !important;
 }}
 
 hr {{
   border-color: var(--border) !important;
 }}
+
+/* Tighten vertical rhythm */
+[data-testid="stVerticalBlock"] > div {{
+  gap: 0.55rem;
+}}
 </style>
 """,
         unsafe_allow_html=True,
     )
+
+
+def render_theme_toggle() -> None:
+    """Swipe-style theme toggle: off = Washi light, on = Midnight dark."""
+    dark = st.toggle(
+        "Midnight Shibuya",
+        value=st.session_state.theme_mode == "dark",
+        help="Off = Washi & Sumi (light) · On = Midnight Shibuya (dark)",
+        key="hanko_theme_toggle",
+    )
+    set_theme("dark" if dark else "light")
+    st.caption("Washi ↔ Midnight")
 
 
 def render_hero(*, title: str, subtitle: str, live: bool = False) -> None:
@@ -297,14 +423,20 @@ def render_hero(*, title: str, subtitle: str, live: bool = False) -> None:
         if live
         else ""
     )
-    st.markdown(
-        f"""
-<div class="fx-hero">
-  <div class="fx-kicker">Fantasy draft board</div>
+    with st.container(border=True):
+        left, right = st.columns([0.08, 0.92], vertical_alignment="center")
+        with left:
+            if ICON_PATH.is_file():
+                st.image(str(ICON_PATH), width=64)
+        with right:
+            st.markdown(
+                f"""
+<div class="fx-hero-copy">
+  <div class="fx-kicker">{APP_NAME} · fantasy draft</div>
   <h1>{title}</h1>
   <p>{subtitle}</p>
   {live_html}
 </div>
 """,
-        unsafe_allow_html=True,
-    )
+                unsafe_allow_html=True,
+            )

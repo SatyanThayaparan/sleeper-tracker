@@ -431,30 +431,48 @@ div[data-testid="stVerticalBlockBorderWrapper"] {{
   transition: var(--theme-ease);
 }}
 
-/* Banner theme toggle — indigo family gradient */
-.fx-theme-slot div[data-testid="stToggle"] {{
-  justify-content: flex-end;
+/* Sidebar theme toggle — oversized, hard to miss */
+.fx-theme-label {{
+  font-family: var(--font);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent) !important;
+  margin: 0 0 0.35rem 0;
 }}
 
-.fx-theme-slot label[data-baseweb="checkbox"] {{
-  min-width: 64px !important;
-  min-height: 36px !important;
-  background: linear-gradient(90deg, #EEF1F8 0%, #78B159 40%, #121622 70%, #D4AF37 100%) !important;
-  border: var(--border-w) solid var(--border) !important;
+.fx-theme-hint {{
+  font-family: var(--font);
+  font-size: 0.8rem;
+  color: var(--ink-muted) !important;
+  margin: 0.45rem 0 0 0;
+}}
+
+section[data-testid="stSidebar"] div[data-testid="stToggle"] {{
+  justify-content: stretch;
+  width: 100%;
+}}
+
+section[data-testid="stSidebar"] label[data-baseweb="checkbox"] {{
+  width: 100% !important;
+  min-width: 100% !important;
+  min-height: 56px !important;
+  background: linear-gradient(90deg, #EEF1F8 0%, #78B159 35%, #121622 68%, #D4AF37 100%) !important;
+  border: 2px solid var(--accent) !important;
   border-radius: 999px !important;
-  padding: 4px !important;
-  transform: scale(1.25);
-  transform-origin: right center;
+  padding: 7px !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14), 0 8px 22px rgba(0,0,0,0.28);
 }}
 
-.fx-theme-slot label[data-baseweb="checkbox"] > div:first-child {{
+section[data-testid="stSidebar"] label[data-baseweb="checkbox"] > div:first-child {{
   background: #FFFFFF !important;
-  width: 28px !important;
-  height: 28px !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  width: 42px !important;
+  height: 42px !important;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.35);
 }}
 
-.fx-theme-slot [data-testid="stWidgetLabel"] {{
+section[data-testid="stSidebar"] div[data-testid="stToggle"] [data-testid="stWidgetLabel"] {{
   display: none !important;
 }}
 
@@ -468,16 +486,22 @@ hr {{
     )
 
 
-def render_banner_theme_toggle() -> None:
-    """Large gradient swipe toggle for the page banner (top-right)."""
-    st.markdown('<div class="fx-theme-slot">', unsafe_allow_html=True)
-    st.toggle(
-        "Dark mode",
-        value=st.session_state.theme_mode == "dark",
-        key="picky_theme_toggle",
-        label_visibility="collapsed",
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
+def render_sidebar_theme_toggle() -> None:
+    """Oversized gradient swipe toggle at the top of the sidebar."""
+    mode = st.session_state.get("theme_mode", "dark")
+    hint = "Dark mode on" if mode == "dark" else "Light mode on"
+    with st.container(border=True):
+        st.markdown('<p class="fx-theme-label">Theme</p>', unsafe_allow_html=True)
+        st.toggle(
+            "Dark mode",
+            value=mode == "dark",
+            key="picky_theme_toggle",
+            label_visibility="collapsed",
+        )
+        st.markdown(
+            f'<p class="fx-theme-hint">{hint} · swipe to switch</p>',
+            unsafe_allow_html=True,
+        )
 
 
 def render_hero(*, title: str, subtitle: str, live: bool = False) -> None:
@@ -487,11 +511,11 @@ def render_hero(*, title: str, subtitle: str, live: bool = False) -> None:
         else ""
     )
     with st.container(border=True):
-        left, mid, right = st.columns([0.07, 0.78, 0.15], vertical_alignment="center")
+        left, right = st.columns([0.08, 0.92], vertical_alignment="center")
         with left:
             if ICON_PATH.is_file():
                 st.image(str(ICON_PATH), width=58)
-        with mid:
+        with right:
             st.markdown(
                 f"""
 <div class="fx-hero-copy">
@@ -503,5 +527,3 @@ def render_hero(*, title: str, subtitle: str, live: bool = False) -> None:
 """,
                 unsafe_allow_html=True,
             )
-        with right:
-            render_banner_theme_toggle()

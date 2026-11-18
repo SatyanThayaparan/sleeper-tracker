@@ -16,6 +16,7 @@ from theme import (
     init_theme,
     inject_css,
     render_hero,
+    render_sidebar_theme_toggle,
 )
 
 API = "https://api.sleeper.app/v1"
@@ -320,6 +321,7 @@ def render_picks(board, roster_names, user_selected):
 
 
 with st.sidebar:
+    render_sidebar_theme_toggle()
     st.markdown("### Connect your draft")
     draft_link = st.text_input("Your Sleeper draft link or ID", value=DEFAULT_DRAFT_URL)
     draft_id_override = draft_id_from_link(draft_link)

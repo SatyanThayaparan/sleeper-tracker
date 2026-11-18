@@ -411,7 +411,7 @@ with st.sidebar:
     render_sidebar_brand()
     render_connection_card(
         connected=_preview_connected,
-        league_name="Configured draft" if _preview_connected else "",
+        league_name=st.session_state.get("sidebar_league_name", "Configured draft") if _preview_connected else "",
         meta="Manage under Settings" if _preview_connected else "Open Settings to connect",
     )
     nav_icons = {
@@ -581,6 +581,7 @@ except Exception as e:
     st.stop()
 
 league_name = league.get("name") or "Connected Draft"
+st.session_state.sidebar_league_name = league_name
 
 
 @st.fragment(run_every=f"{refresh}s")

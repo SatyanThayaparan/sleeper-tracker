@@ -15,9 +15,7 @@ from theme import (
     ICON_PATH,
     init_theme,
     inject_css,
-    palette,
     render_hero,
-    render_theme_toggle,
 )
 
 API = "https://api.sleeper.app/v1"
@@ -29,6 +27,12 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 init_theme()
+# Widget state is restored before render — sync theme before CSS inject.
+if "sors_theme_toggle" in st.session_state:
+    st.session_state.theme_mode = (
+        "dark" if st.session_state.sors_theme_toggle else "light"
+    )
+inject_css(st.session_state.theme_mode)
 
 DEFAULT_DRAFT_ID = "1416933113287770112"
 DEFAULT_DRAFT_URL = "https://sleeper.com/draft/nba/1416933113287770112?ftue=commish"
@@ -316,21 +320,7 @@ def render_picks(board, roster_names, user_selected):
 
 
 with st.sidebar:
-    if ICON_PATH.is_file():
-        brand_l, brand_r = st.columns([0.22, 0.78], vertical_alignment="center")
-        with brand_l:
-            st.image(str(ICON_PATH), width=40)
-        with brand_r:
-            st.markdown(f"**{APP_NAME}**")
-            st.caption(palette()["name"])
-    else:
-        st.markdown(f"**{APP_NAME}**")
-    render_theme_toggle()
-    inject_css(st.session_state.theme_mode)
-    st.divider()
-
     st.markdown("### Connect your draft")
-    st.success("Configured for your Sleeper NBA Lock-In redraft")
     draft_link = st.text_input("Your Sleeper draft link or ID", value=DEFAULT_DRAFT_URL)
     draft_id_override = draft_id_from_link(draft_link)
     league_id = st.text_input(

@@ -1,14 +1,13 @@
-# Hanko
+# Sors
 
-**Hanko** is a Streamlit draft board for Sleeper NBA fantasy leagues — live pick tracking, projections, and pick recommendations. The name nods to a Japanese seal stamp: your pick, marked.
+**Sors** (Latin: *lot* / casting lots) is a Streamlit draft board for Sleeper NBA fantasy leagues — live pick tracking, projections, and pick recommendations.
 
 **Live app:** [satyanthayaparan-sleeper-tracker-app-pmaj1x.streamlit.app](https://satyanthayaparan-sleeper-tracker-app-pmaj1x.streamlit.app)
 
 ## Features
 
-- Fantasy draft UI with a swipe theme toggle (60-30-10):
-  - **Washi & Sumi** — cream paper, charcoal ink, vermilion accents (same Sora typography as dark)
-  - **Midnight Shibuya** — aizome indigo, slate panels, matcha / gold accents
+- Fantasy draft UI with light / dark themes (60-30-10 cream·charcoal·vermilion / indigo·slate·matcha)
+- Banner theme swipe toggle
 - Connect to a Sleeper draft by ID or URL
 - Auto-refresh picks while the browser session is open
 - Import custom projection CSVs (FPPG, upside/floor, availability)
@@ -74,9 +73,9 @@ No API keys are required for read-only Sleeper draft polling. Apps on Community 
 
 ```text
 sleeper-tracker/
-├── app.py                          # Streamlit UI (Hanko)
-├── theme.py                        # Washi / Midnight themes + hero
-├── assets/hanko-icon.jpg           # app icon
+├── app.py                          # Streamlit UI (Sors)
+├── theme.py                        # Light / dark themes + banner
+├── assets/sors-icon.jpg            # app icon
 ├── .streamlit/config.toml          # default Streamlit theme tokens
 ├── recommend.py                    # recommendation logic
 ├── adp.py                          # ADP helpers

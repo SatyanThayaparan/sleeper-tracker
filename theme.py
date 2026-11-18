@@ -496,53 +496,66 @@ div[data-testid="stMetric"] [data-testid="stMetricValue"] {
   color: var(--color-warning) !important;
 }
 
-.fx-rec-row {
+.fx-league-card {
+  display: flex;
+  align-items: center;
+  gap: 10px 18px;
+  flex-wrap: wrap;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+.fx-league-card strong { color: var(--color-text-primary); font-size: 16px; }
+.fx-league-card span:not(:last-child)::after {
+  content: "·";
+  margin-left: 18px;
+  color: var(--color-text-muted);
+}
+.fx-rec-table { width: 100%; overflow-x: auto; }
+.fx-rec-head, .fx-rec-row {
   display: grid;
-  grid-template-columns: 36px 1fr auto;
+  grid-template-columns: 36px minmax(140px, 2.1fr) minmax(90px, 1fr) minmax(72px, .8fr) minmax(130px, 1fr);
   gap: 12px;
   align-items: center;
-  padding: 12px 4px;
+}
+.fx-rec-head {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  font-size: 12px;
+}
+.fx-rec-head > :last-child { text-align: right; }
+.fx-rec-row {
+  padding: 13px 14px;
   border-bottom: 1px solid var(--color-border);
 }
 .fx-rec-row:last-child { border-bottom: none; }
-.fx-rec-row.top {
-  background: rgba(56, 185, 121, 0.06);
-  border-radius: var(--radius-sm);
-  padding-left: 8px;
-  padding-right: 8px;
-}
-.fx-rec-rank {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--color-accent);
-}
-.fx-rec-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-.fx-rec-meta {
-  font-size: 12px;
-  color: var(--color-text-muted);
-  margin-top: 2px;
-}
-.fx-rec-score {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  text-align: right;
-}
+.fx-rec-row:hover { background: var(--color-surface-hover); }
+.fx-rec-row.top { background: rgba(56, 185, 121, 0.07); }
+.fx-rec-rank { color: var(--color-accent); font-weight: 700; font-size: 14px; }
+.fx-rec-name { font-weight: 600; font-size: 14px; color: var(--color-text-primary); }
+.fx-rec-team { font-size: 13px; color: var(--color-text-secondary); }
+.fx-rec-score { font-size: 14px; font-weight: 700; color: var(--color-text-primary); text-align: right; font-variant-numeric: tabular-nums; }
 .fx-pos {
   display: inline-block;
-  margin-right: 6px;
-  padding: 1px 6px;
-  border-radius: 4px;
   background: var(--color-surface-raised);
+  border-radius: 5px;
   color: var(--color-text-secondary);
-  font-size: 11px;
-  font-weight: 500;
+  padding: 3px 7px;
+  font-size: 12px;
 }
-
+@media (max-width: 640px) {
+  .fx-rec-head, .fx-rec-row { grid-template-columns: 24px minmax(100px, 1fr) 64px 82px !important; gap: 6px; }
+  .fx-rec-head > :nth-child(4), .fx-rec-row > :nth-child(4) { display: none !important; }
+  .fx-rec-head, .fx-rec-row { padding-left: 8px; padding-right: 8px; }
+  .fx-rec-score { font-size: 12px; }
+}
 .fx-settings-group {
   margin-bottom: 8px;
 }
@@ -561,6 +574,10 @@ hr { border-color: var(--color-border) !important; }
     padding-right: var(--space-4) !important;
   }
   .fx-page-title { font-size: 22px !important; }
+  .fx-rec-head, .fx-rec-row { grid-template-columns: 28px minmax(110px, 1fr) 84px 94px !important; }
+  .fx-rec-head > :nth-child(4), .fx-rec-row > :nth-child(4) { display: none !important; }
+  .fx-league-card { gap: 8px 14px; }
+
   div[data-testid="stMetric"] [data-testid="stMetricValue"] {
     font-size: 24px !important;
   }
@@ -597,7 +614,7 @@ def render_connection_card(
     meta: str = "",
 ) -> None:
     cls = "fx-conn" if connected else "fx-conn fx-conn-offline"
-    status = "Draft connected" if connected else "Not connected"
+    status = "Draft configured" if connected else "Not configured"
     dot = "fx-conn-dot" if connected else "fx-conn-dot off"
     league = league_name or ("Open Settings to connect" if not connected else "Connected Draft")
     meta_html = f'<p class="fx-conn-meta">{meta}</p>' if meta else ""

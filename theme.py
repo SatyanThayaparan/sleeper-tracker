@@ -604,6 +604,64 @@ div[data-testid="stMetric"] [data-testid="stMetricValue"] {
   margin: 0 0 8px;
 }
 
+/* Minimal sidebar header matching the selected reference composition. */
+section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+  padding-top: 18px !important;
+}
+section[data-testid="stSidebar"] .fx-wordmark {
+  font-family: var(--font);
+  color: var(--color-text-primary);
+  font-weight: 700;
+  font-size: 21px;
+  line-height: 1.15;
+  letter-spacing: -.03em;
+}
+section[data-testid="stSidebar"] [data-testid="stImage"] img {
+  display: block;
+  border-radius: 11px;
+}
+.fx-connection-mini {
+  margin: 22px 0 22px;
+  padding: 0 3px;
+}
+.fx-status-pill {
+  width: fit-content;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #58D995;
+  background: rgba(56,185,121,.15);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  border-radius: 999px;
+}
+.fx-status-dot { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%;
+  background: var(--color-accent); }
+.fx-mini-league {
+  margin-top: 12px;
+  color: var(--color-text-primary);
+  font-size: 17px;
+  line-height: 1.25;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.fx-mini-helper {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+  margin-top: 7px;
+}
+.fx-conn-offline .fx-status-pill { background: var(--color-surface-raised);
+  color: var(--color-text-secondary); }
+.fx-conn-offline .fx-status-dot { background: var(--color-text-muted); }
+.fx-nav-divider { margin-top: 18px; margin-bottom: 16px; }
+.fx-utility-divider { margin-top: 24px; }
+section[data-testid="stSidebar"] [class*="st-key-nav_"] button {
+  min-height: 44px !important;
+}
 hr { border-color: var(--color-border) !important; }
 
 @media (max-width: 900px) {
@@ -627,28 +685,28 @@ hr { border-color: var(--color-border) !important; }
 
 
 def render_sidebar_brand() -> None:
-    """Compact, resolution-independent green dice mark from the layout preview."""
-    st.html(
-        f"""
-<div class="fx-brand">
-  <span class="fx-brand-icon" aria-hidden="true">
-    <svg width="25" height="25" viewBox="0 0 32 32" fill="none"
-         xmlns="http://www.w3.org/2000/svg">
-      <rect x="11" y="3.5" width="16.5" height="16.5" rx="4"
-            stroke="#0F3428" stroke-width="2.2" transform="rotate(10 19 12)"/>
-      <rect x="4.5" y="10.5" width="17" height="17" rx="4"
-            fill="#38B979" stroke="#0F3428" stroke-width="2.2"/>
-      <circle cx="9.7" cy="15.7" r="1.65" fill="#0F3428"/>
-      <circle cx="16.4" cy="22.3" r="1.65" fill="#0F3428"/>
-      <circle cx="13" cy="19" r="1.65" fill="#0F3428"/>
-      <circle cx="20.6" cy="9" r="1.4" fill="#0F3428"/>
-      <circle cx="24" cy="14.2" r="1.4" fill="#0F3428"/>
-    </svg>
-  </span>
-  <span class="fx-brand-name">{escape(APP_NAME)}</span>
-</div>
-""",
-    )
+    """Compact branded wordmark using the green dice tile from the reference."""
+    # Native st.image renders SVG data directly; inline SVG in st.html can be
+    # stripped by HTML sanitization and leave an empty green square.
+    dice_svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+      <rect width="48" height="48" rx="11" fill="#38B979"/>
+      <g stroke="#0D2330" stroke-width="3" stroke-linejoin="round" fill="none">
+        <rect x="19" y="8" width="21" height="21" rx="4" transform="rotate(-42 29.5 18.5)"/>
+        <rect x="8" y="19" width="23" height="23" rx="4"/>
+      </g>
+      <g fill="#0D2330">
+        <circle cx="15" cy="26" r="2.1"/><circle cx="24" cy="35" r="2.1"/>
+        <circle cx="23.5" cy="13.5" r="1.9"/><circle cx="32.5" cy="20" r="1.9"/>
+      </g>
+    </svg>"""
+    brand_logo, brand_name = st.columns([0.27, 0.73], gap="small", vertical_alignment="center")
+    with brand_logo:
+        st.image(dice_svg.encode("utf-8"), width=48)
+    with brand_name:
+        st.markdown(
+            '<div class="fx-wordmark">Picky</div>',
+            unsafe_allow_html=True,
+        )
 
 
 def render_connection_card(
@@ -657,17 +715,20 @@ def render_connection_card(
     league_name: str = "",
     meta: str = "",
 ) -> None:
-    cls = "fx-conn" if connected else "fx-conn fx-conn-offline"
+    """Compact status pill and league details, without a bulky card background."""
+    cls = "fx-connection-mini" if connected else "fx-connection-mini fx-conn-offline"
     status = "Draft configured" if connected else "Not configured"
-    dot = "fx-conn-dot" if connected else "fx-conn-dot off"
-    league = league_name or ("Open Settings to connect" if not connected else "Connected Draft")
-    meta_html = f'<p class="fx-conn-meta">{meta}</p>' if meta else ""
+    league = league_name or ("Configured draft" if connected else "No draft selected")
+    helper = meta or ("Manage under Settings" if connected else "Open Settings to connect")
     st.markdown(
         f"""
 <div class="{cls}">
-  <div class="fx-conn-status"><span class="{dot}"></span>{status}</div>
-  <p class="fx-conn-league">{league}</p>
-  {meta_html}
+  <div class="fx-status-pill">
+    <span class="fx-status-dot" aria-hidden="true"></span>
+    <span>{escape(status)}</span>
+  </div>
+  <div class="fx-mini-league">{escape(league)}</div>
+  <div class="fx-mini-helper">{escape(helper)}</div>
 </div>
 """,
         unsafe_allow_html=True,

@@ -305,93 +305,91 @@ def render_top_recommendations(options, origin):
 def render_settings_form(league_id_hint: str = ""):
     render_page_header(
         title="Settings & Connections",
-        subtitle="Connect Sleeper, import projections, and tune ranking weights.",
+        subtitle="Set up Picky in a few steps. Recommended defaults work for beginners.",
         live=False,
     )
     with st.container(border=True):
-        st.markdown('<p class="fx-settings-title">Sleeper Connection</p>', unsafe_allow_html=True)
-        st.text_input(
-            "Your Sleeper draft link or ID",
-            key="cfg_draft_link",
-        )
-        st.text_input(
-            "League ID (automatically discovered from draft; optional)",
-            key="cfg_league_id",
-            placeholder="Optional override",
-        )
-        st.text_input(
-            "Your Sleeper username or user ID (optional)",
-            key="cfg_my_user",
-        )
-        st.select_slider(
-            "Pick refresh interval",
-            options=[10, 15, 30, 60],
-            key="cfg_refresh",
-            format_func=lambda x: f"{x} sec",
-        )
-        st.caption("Auto-refresh when a draft is connected. No Sleeper password required.")
-
+        st.markdown("### 1. Connect your Sleeper draft")
+        st.caption("Paste your Sleeper draft link to load the league and picks. No password needed.")
+        st.text_input("Sleeper draft link or ID", key="cfg_draft_link",
+                      help="Copy your draft URL directly from Sleeper.")
+        st.text_input("Sleeper username or user ID (optional)", key="cfg_my_user",
+                      help="Helps Picky account for players already on your roster.")
+        with st.expander("Additional connection options"):
+            st.text_input("League ID override (usually automatic)", key="cfg_league_id",
+                          placeholder="Optional override")
+            st.select_slider("Check for picks every", options=[10, 15, 30, 60],
+                             key="cfg_refresh", format_func=lambda x: f"{x} sec")
     with st.container(border=True):
-        st.markdown('<p class="fx-settings-title">Projections & Rankings</p>', unsafe_allow_html=True)
-        uploaded = st.file_uploader(
-            "Upload your player rankings or projections CSV",
-            type=["csv"],
-            key="cfg_upload",
-        )
-        st.download_button(
-            "Download Lock-In projection template",
-            data="player,projected_fppg,upside_fppg,floor_fppg,games_per_week,availability_pct\n",
-            file_name="lockin_projection_template.csv",
-            mime="text/csv",
-        )
-        st.caption(
-            "Optional CSV columns: upside_fppg, floor_fppg, games_per_week, availability_pct."
-        )
-
-    with st.container(border=True):
-        st.markdown('<p class="fx-settings-title">Advanced Preferences</p>', unsafe_allow_html=True)
-        st.slider("Lock-In upside emphasis (%)", 0, 80, key="cfg_upside", step=5)
-        st.slider("Consistency / floor emphasis (%)", 0, 60, key="cfg_safety", step=5)
-        st.slider("Injury status penalty (%)", 0, 50, key="cfg_risk", step=5)
-        st.slider("Open lineup fit bonus (%)", 0, 25, key="cfg_fit", step=1)
-        st.caption(
-            "Baseline is Hashtag Basketball ADP across Yahoo, ESPN, and Fantrax. "
-            "A projection CSV replaces the ADP baseline."
-        )
-
-    with st.container(border=True):
-        st.markdown('<p class="fx-settings-title">OpenAI</p>', unsafe_allow_html=True)
-        if openai_configured():
-            st.success("ChatGPT API key loaded from local secrets (.env / Streamlit secrets).")
-        else:
-            st.warning(
-                "No OPENAI_API_KEY found. Add it to a local `.env` or `.streamlit/secrets.toml` "
-                "(both are gitignored)."
+        st.markdown("### 2. Choose your rankings source")
+        st.caption("Picky uses an ADP blend automatically. Optionally upload your own projections.")
+        with st.expander("Custom projections (optional)"):
+            st.file_uploader("Player rankings or projections CSV", type=["csv"], key="cfg_upload")
+            st.download_button(
+                "Download Lock-In projection template",
+                data="player,projected_fppg,upside_fppg,floor_fppg,games_per_week,availability_pct\\n",
+                file_name="lockin_projection_template.csv", mime="text/csv",
             )
-        st.caption("The key never ships in git. For Streamlit Cloud, set the same secret in the app settings.")
-    return uploaded
+            st.caption("Optional columns: upside_fppg, floor_fppg, games_per_week, availability_pct.")
+    with st.container(border=True):
+        st.markdown("### 3. Recommendation preferences")
+        st.caption("Balanced (recommended): keep the current default weighting for upside, "
+                   "consistency, injury risk, and roster needs.")
+        with st.expander("Advanced ranking preferences"):
+            st.slider("Lock-In upside emphasis (%)", 0, 80, key="cfg_upside", step=5,
+                      help="Increase to emphasize potential big scoring performances.")
+            st.slider("Consistency / floor emphasis (%)", 0, 60, key="cfg_safety", step=5,
+                      help="Increase to favor consistent results.")
+            st.slider("Injury status penalty (%)", 0, 50, key="cfg_risk", step=5,
+                      help="Increase to weigh injury concerns more heavily.")
+            st.slider("Open lineup fit bonus (%)", 0, 25, key="cfg_fit", step=1,
+                      help="Increase to prioritize players who fill open starting positions.")
+        st.caption("An uploaded CSV replaces the ADP baseline.")
+    with st.expander("Developer options: OpenAI"):
+        if openai_configured():
+            st.success("API key loaded from secrets.")
+        else:
+            st.info("Optional: add OPENAI_API_KEY in local or Streamlit Cloud secrets.")
+        st.caption("Never commit an API key to Git.")
+    return st.session_state.get("cfg_upload")
 
 
 def render_help():
     render_page_header(
-        title="Help",
-        subtitle="How Picky works and what the recommendations mean.",
+        title="Help & Getting Started",
+        subtitle="Learn what Picky does and understand common fantasy draft terms.",
         live=False,
     )
     with st.container(border=True):
+        st.markdown("### Get started in three steps")
         st.markdown(
-            """
-**Picky** is an advisory Lock-In redraft copilot for Sleeper NBA drafts.
-
-1. Open **Settings & Connections** and paste your Sleeper draft link.
-2. Optionally set your username so roster fit is included.
-3. Upload a projections CSV or use the Hashtag Basketball ADP blend.
-4. Use **Overview** for live picks, top recommendations, sleeper, and fade.
-
-Draft selections are always made in Sleeper. Data sources: Sleeper API, Hashtag Basketball ADP,
-ESPN NBA RSS, and Google News.
-"""
+            "**1. Connect your draft** — enter its Sleeper URL in Settings & Connections.\n\n"
+            "**2. Choose your fantasy team** — add your Sleeper username to improve roster fit.\n\n"
+            "**3. Explore recommendations** — check Overview, Rankings and Draft Board."
         )
+        st.info("Picky is an advisory tool. Make your actual draft picks in Sleeper.")
+    st.markdown("### Fantasy terms, explained")
+    terms = [
+        ("What is ADP?", "Average Draft Position: when a player is typically selected. Lower ADP means earlier."),
+        ("What is Lock-In scoring?", "A Sleeper format where eligible game performances can be locked in under your league rules."),
+        ("What is a sleeper pick?", "A player who may offer better value than their typical draft position suggests."),
+        ("What is a fade?", "A player to approach with caution based on available ranking, injury or news information."),
+        ("What is roster fit?", "How a player matches the starting positions your team still needs."),
+        ("What are projections?", "Estimates of future production that can be imported to customize ranking."),
+    ]
+    for title, detail in terms:
+        with st.expander(title):
+            st.write(detail)
+    with st.container(border=True):
+        st.markdown("### What each page shows")
+        st.markdown(
+            "**Overview:** your draft snapshot and recommendations.\n\n"
+            "**Draft Board:** recent selections and full pick history.\n\n"
+            "**Player Rankings:** available players, ADP, projection values and filters.\n\n"
+            "**Reports & News:** articles that may be relevant to fantasy decisions.\n\n"
+            "**Settings:** draft connection and optional ranking preferences."
+        )
+        st.caption("Sources: Sleeper API, Hashtag Basketball ADP, ESPN and Google News.")
 
 
 draft_link = st.session_state.cfg_draft_link
@@ -729,30 +727,60 @@ def live_dashboard(active_page: str):
             )
 
     elif active_page == "board":
-        render_page_header(title="Draft Board", subtitle="Recent picks from your Sleeper draft.", live=True)
-        rows = []
-        for p in reversed(picks[-75:]):
-            rows.append(
-                {
-                    "Overall": p.get("pick_no"),
-                    "Round": p.get("round"),
-                    "Player": player_name(p.get("player_id"), players, picks),
-                    "User": p.get("picked_by"),
-                    "Roster": p.get("roster_id"),
-                    "Position": ", ".join(
-                        player_positions(players.get(str(p.get("player_id")), {}))
-                    ),
-                }
-            )
-        if rows:
-            st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+        completed = draft_status in ("complete", "completed")
+        render_page_header(
+            title="Draft Board",
+            subtitle="Follow each selection and see how the draft is progressing.",
+            live=not completed and draft_status in ("drafting", "in_progress"),
+        )
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Picks made", len(picks))
+        m2.metric("Teams", teams or "—")
+        m3.metric("Latest round", max((int(p.get("round") or 0) for p in picks), default=0) or "—")
+        if completed:
+            st.info("This draft is complete. You can review all picks below.")
+        st.markdown("### Recent draft activity")
+        st.caption("The latest selections appear first.")
+        if picks:
+            for pick in reversed(picks[-5:]):
+                name = escape_html(player_name(pick.get("player_id"), players, picks))
+                no = escape_html(str(pick.get("pick_no") or "—"))
+                rd = escape_html(str(pick.get("round") or "—"))
+                positions = ", ".join(player_positions(players.get(str(pick.get("player_id")), {})))
+                st.markdown(
+                    f'<div class="fx-activity-row"><span class="fx-activity-number">{no}</span>'
+                    f'<div><strong>{name}</strong><small>Round {rd} · '
+                    f'{escape_html(positions or "Position unavailable")}</small></div></div>',
+                    unsafe_allow_html=True,
+                )
         else:
-            st.info("No completed draft picks yet.")
-        if roster_ids:
-            st.markdown(
-                "**Your drafted players**: "
-                + ", ".join(player_name(pid, players, picks) for pid in roster_ids)
-            )
+            st.info("No draft picks yet.")
+        with st.container(border=True):
+            st.markdown("### Complete pick history")
+            rows = []
+            for pick in reversed(picks):
+                rows.append({
+                    "Overall": pick.get("pick_no"),
+                    "Round": pick.get("round"),
+                    "Player": player_name(pick.get("player_id"), players, picks),
+                    "User": pick.get("picked_by"),
+                    "Roster": pick.get("roster_id"),
+                    "Position": ", ".join(
+                        player_positions(players.get(str(pick.get("player_id")), {}))
+                    ),
+                })
+            if rows:
+                search = st.text_input("Search drafted players", key="draft_search")
+                frame = pd.DataFrame(rows)
+                if search.strip():
+                    frame = frame[frame["Player"].astype(str).str.contains(
+                        search.strip(), case=False, regex=False, na=False
+                    )]
+                st.dataframe(frame, hide_index=True, width="stretch", height=430)
+            if roster_ids:
+                with st.expander("Players on your team"):
+                    st.write(", ".join(player_name(pid, players, picks) for pid in roster_ids))
+
 
     elif active_page == "players":
         render_page_header(
@@ -778,6 +806,18 @@ def live_dashboard(active_page: str):
             else:
                 st.caption("Order uses your imported projections and roster/injury context.")
 
+            r1, r2, r3 = st.columns(3)
+            r1.metric("Ranked players", len(board["rows"]))
+            r2.metric("Ranking method", {
+                "adp": "ADP blend", "projection": "Custom projections",
+            }.get(board["origin"], "Sleeper rank"))
+            r3.metric("Roster aware", "Yes" if my_user_id else "No")
+            if board["origin"] == "adp":
+                st.info("ADP is Average Draft Position. Lower numbers mean a player "
+                        "is typically selected earlier, not that they score fewer points.")
+            if not my_user_id:
+                st.caption("Add your Sleeper account under Settings to include roster fit.")
+            st.markdown("### Available player rankings")
             shown = list(board["rows"][:75])
             labels = {}
             for role, key in (("Fade", "fade"), ("Sleeper", "sleeper")):
@@ -804,7 +844,6 @@ def live_dashboard(active_page: str):
                     "Positions": row["position"],
                     "Team": row["team"],
                     "Injury": row["injury"],
-                    "Roster fit": row["roster"],
                     "Pick tag": labels.get(row["player_id"], ""),
                 }
                 if board["origin"] == "adp":
@@ -834,7 +873,12 @@ def live_dashboard(active_page: str):
             frame = pd.DataFrame(records)
             if filter_pos != "All":
                 frame = frame[frame["Positions"].astype(str).str.contains(filter_pos, na=False)]
-            st.dataframe(frame, hide_index=True, width="stretch")
+            st.dataframe(
+                frame, hide_index=True, width="stretch", height=450,
+                column_config={"ESPN": st.column_config.LinkColumn(
+                    "Player info", display_text="Open ESPN"
+                )},
+            )
             st.download_button(
                 "Export available rankings",
                 frame.to_csv(index=False),
@@ -846,37 +890,56 @@ def live_dashboard(active_page: str):
     elif active_page == "reports":
         render_page_header(
             title="Reports & News",
-            subtitle="Headlines that can move picks up, down, or onto the fade list.",
-            live=True,
+            subtitle="NBA headlines to help you spot updates worth checking before a pick.",
+            live=False,
         )
-        st.caption(
-            "RSS: ESPN NBA and Google News. Verify injuries before drafting."
-        )
+        n1, n2, n3 = st.columns(3)
+        n1.metric("Headlines loaded", len(articles))
+        n2.metric("News feeds", len({a.get("source") for a in articles if a.get("source")}))
+        n3.metric("Players reviewed", min(len(board.get("rows") or []), 80))
+        st.caption("News is informational, not a verified injury diagnosis. "
+                   "Always confirm updates before drafting.")
         if not articles:
             st.warning("News feeds are unavailable right now.")
         else:
             grouped = {}
             for row in board["rows"][:80]:
                 for hit in row.get("hits") or []:
-                    bucket = grouped.setdefault(hit["title"], {"hit": hit, "names": []})
+                    headline = hit.get("title")
+                    if not headline:
+                        continue
+                    bucket = grouped.setdefault(headline, {"hit": hit, "names": []})
                     if row["player"] not in bucket["names"]:
                         bucket["names"].append(row["player"])
-            relevant = list(grouped.values())
-            if relevant:
+            if grouped:
+                st.markdown("### Reports mentioning available players")
+                for item in list(grouped.values())[:8]:
+                    hit = item["hit"]
+                    with st.container(border=True):
+                        if hit.get("link"):
+                            st.markdown(f'**[{hit["title"]}]({hit["link"]})**')
+                        else:
+                            st.markdown(f'**{hit.get("title") or "News report"}**')
+                        st.caption(f'{hit.get("source") or "News"} · Players mentioned: '
+                                   + ", ".join(item["names"][:4]))
+            st.markdown("### Latest league-wide headlines")
+            sources = sorted({str(item.get("source") or "Unknown") for item in articles})
+            source = st.selectbox("Filter by source", ["All sources"] + sources,
+                                  key="news_source_filter")
+            visible = [a for a in articles if source == "All sources"
+                       or str(a.get("source") or "Unknown") == source]
+            for article in visible[:20]:
                 with st.container(border=True):
-                    st.markdown("**Reports mentioning top available players**")
-                    for item in relevant[:12]:
-                        article = item["hit"]
-                        st.markdown(
-                            f'- [{article["title"]}]({article["link"]}) — {article["source"]} • '
-                            f'{", ".join(item["names"])} · {article["tone"]}'
-                        )
-            with st.container(border=True):
-                st.markdown("**Latest league-wide headlines**")
-                for article in articles[:20]:
-                    st.markdown(
-                        f'- [{article["title"]}]({article["link"]}) — {article["source"]}'
-                    )
+                    title = article.get("title") or "Read story"
+                    url = article.get("link")
+                    if url:
+                        st.markdown(f"**[{title}]({url})**")
+                    else:
+                        st.markdown(f"**{title}**")
+                    details = " · ".join(filter(None, [article.get("source"),
+                                                      article.get("published")]))
+                    if details:
+                        st.caption(details)
 
 
 if page in ("overview", "board", "players", "reports"):

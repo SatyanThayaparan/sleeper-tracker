@@ -436,61 +436,92 @@ div[data-testid="stVerticalBlockBorderWrapper"] > div {{
   transition: var(--theme-ease);
 }}
 
-/* Sidebar theme toggle — big sun/moon swipe, no helper text */
-section[data-testid="stSidebar"] div[data-testid="stToggle"] {{
-  justify-content: stretch;
-  width: 100%;
-  margin: 0.25rem 0 0.9rem 0 !important;
+/*
+  Custom sun/moon theme pill (2×) in the first bordered sidebar module.
+  Matches main-page container borders; left-aligned at the top.
+*/
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor) {{
+  width: fit-content !important;
+  max-width: 100% !important;
+  margin: 0 0 0.85rem 0 !important;
+  padding: 0.65rem 0.75rem !important;
 }}
 
-section[data-testid="stSidebar"] label[data-baseweb="checkbox"] {{
-  position: relative !important;
-  width: 100% !important;
-  min-width: 100% !important;
-  min-height: 68px !important;
-  background: linear-gradient(90deg, #F7F9FD 0%, #78B159 38%, #121622 72%, #D4AF37 100%) !important;
-  border: 2px solid var(--accent) !important;
-  border-radius: 999px !important;
-  padding: 8px !important;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14), 0 10px 26px rgba(0,0,0,0.3);
-}}
-
-/* Sun (left) / moon (right) — makes the control read as a theme switch */
-section[data-testid="stSidebar"] label[data-baseweb="checkbox"]::before,
-section[data-testid="stSidebar"] label[data-baseweb="checkbox"]::after {{
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 1.35rem;
-  line-height: 1;
-  pointer-events: none;
-  z-index: 1;
-  opacity: 0.95;
-}}
-
-section[data-testid="stSidebar"] label[data-baseweb="checkbox"]::before {{
-  content: "☀";
-  left: 18px;
-  color: #121622;
-}}
-
-section[data-testid="stSidebar"] label[data-baseweb="checkbox"]::after {{
-  content: "☾";
-  right: 20px;
-  color: #F7F9FD;
-}}
-
-section[data-testid="stSidebar"] label[data-baseweb="checkbox"] > div:first-child {{
-  background: #FFFFFF !important;
-  width: 52px !important;
-  height: 52px !important;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.38);
-  position: relative;
-  z-index: 2;
-}}
-
-section[data-testid="stSidebar"] div[data-testid="stToggle"] [data-testid="stWidgetLabel"] {{
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor) [data-testid="stMarkdown"] {{
   display: none !important;
+}}
+
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor) button {{
+  position: relative !important;
+  display: block !important;
+  width: 152px !important;
+  min-width: 152px !important;
+  max-width: 152px !important;
+  height: 64px !important;
+  min-height: 64px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  border: none !important;
+  box-shadow: none !important;
+  font-size: 0 !important;
+  color: transparent !important;
+  overflow: hidden !important;
+  transition: var(--theme-ease) !important;
+}}
+
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor.theme-light) button {{
+  background: #E8ECF5 !important;
+}}
+
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor.theme-dark) button {{
+  background: #0B0E16 !important;
+}}
+
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor) button::after {{
+  content: "" !important;
+  position: absolute !important;
+  top: 6px !important;
+  width: 70px !important;
+  height: 52px !important;
+  border-radius: 999px !important;
+  transition: left 0.35s ease, right 0.35s ease, background-color 0.45s ease !important;
+  z-index: 1 !important;
+}}
+
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor.theme-light) button::after {{
+  left: 6px !important;
+  right: auto !important;
+  background: #B7C0D4 !important;
+}}
+
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor.theme-dark) button::after {{
+  left: auto !important;
+  right: 6px !important;
+  background: #2A3148 !important;
+}}
+
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor) button::before {{
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 2 !important;
+  pointer-events: none !important;
+  background-repeat: no-repeat !important;
+  background-position: 18px center, calc(100% - 18px) center !important;
+  background-size: 26px 26px, 24px 24px !important;
+}}
+
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor.theme-light) button::before {{
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23121622' stroke-width='2' stroke-linecap='round'><circle cx='12' cy='12' r='4'/><path d='M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4'/></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239AA3B8' stroke-width='2' stroke-linecap='round'><path d='M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z'/></svg>") !important;
+}}
+
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlockBorderWrapper"]:has(.picky-theme-anchor.theme-dark) button::before {{
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7899' stroke-width='2' stroke-linecap='round'><circle cx='12' cy='12' r='4'/><path d='M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4'/></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23E8ECF5' stroke-width='2' stroke-linecap='round'><path d='M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z'/></svg>") !important;
 }}
 
 hr {{
@@ -504,13 +535,22 @@ hr {{
 
 
 def render_sidebar_theme_toggle() -> None:
-    """Big sun/moon theme swipe — no accompanying text."""
-    st.toggle(
-        "Dark mode",
-        value=st.session_state.get("theme_mode", "dark") == "dark",
-        key="picky_theme_toggle",
-        label_visibility="collapsed",
-    )
+    """2× sun/moon pill in a bordered module at the top-left of the sidebar."""
+    mode = st.session_state.get("theme_mode", "dark")
+    is_dark = mode == "dark"
+    with st.container(border=True):
+        st.markdown(
+            f'<div class="picky-theme-anchor {"theme-dark" if is_dark else "theme-light"}" aria-hidden="true"></div>',
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "theme",
+            key="picky_theme_btn",
+            help="Switch light / dark theme",
+            type="secondary",
+        ):
+            set_theme("light" if is_dark else "dark")
+            st.rerun()
 
 
 def render_hero(*, title: str, subtitle: str, live: bool = False) -> None:

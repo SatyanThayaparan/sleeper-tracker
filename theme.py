@@ -55,7 +55,7 @@ def inject_css() -> None:
   --space-6: 24px;
   --space-8: 32px;
   --font: "Inter", system-ui, sans-serif;
-  --sidebar-w: 248px;
+  --sidebar-w: 336px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -92,7 +92,7 @@ span[data-testid="stIconMaterial"],
   padding-bottom: var(--space-8) !important;
   padding-left: var(--space-6) !important;
   padding-right: var(--space-6) !important;
-  max-width: 1440px !important;
+  max-width: 1600px !important;
 }
 
 /* Preview-inspired navigation rows: controls behave as buttons but read as links. */
@@ -662,6 +662,104 @@ section[data-testid="stSidebar"] [data-testid="stImage"] img {
 section[data-testid="stSidebar"] [class*="st-key-nav_"] button {
   min-height: 44px !important;
 }
+/* Reference sidebar — wide, deliberately spacious product navigation.
+   Maintain native Streamlit collapse control rather than a fake HTML button. */
+section[data-testid="stSidebar"] {
+  background: #0E1624 !important;
+}
+section[data-testid="stSidebar"] > div,
+section[data-testid="stSidebar"] [data-testid="stSidebarContent"],
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+  background: #0E1624 !important;
+}
+section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+  padding: 28px 22px 32px !important;
+}
+section[data-testid="stSidebar"] [data-testid="stSidebarContent"] [data-testid="stImage"] img {
+  width: 64px !important;
+  height: 64px !important;
+  object-fit: contain;
+  border-radius: 14px;
+}
+section[data-testid="stSidebar"] .fx-wordmark {
+  font-size: 26px;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+section[data-testid="stSidebar"] .fx-connection-mini {
+  background: rgba(37, 102, 76, .29);
+  border: 1px solid rgba(67, 176, 122, .48);
+  border-radius: 16px;
+  margin: 22px 0 22px;
+  padding: 18px 20px 19px;
+}
+section[data-testid="stSidebar"] .fx-status-pill {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #51D98E;
+}
+section[data-testid="stSidebar"] .fx-status-dot {
+  width: 11px;
+  height: 11px;
+}
+section[data-testid="stSidebar"] .fx-mini-league {
+  margin-top: 12px;
+  font-size: 20px;
+  line-height: 1.25;
+  font-weight: 700;
+}
+section[data-testid="stSidebar"] .fx-mini-helper {
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 6px;
+  color: #ADB8C7;
+}
+section[data-testid="stSidebar"] .fx-conn-offline {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+section[data-testid="stSidebar"] .fx-nav-divider {
+  margin: 22px 0 19px;
+  background: #3A4759;
+}
+section[data-testid="stSidebar"] .fx-utility-divider {
+  margin-top: 24px;
+}
+section[data-testid="stSidebar"] [class*="st-key-nav_"] {
+  margin-bottom: 7px;
+}
+section[data-testid="stSidebar"] [class*="st-key-nav_"] button {
+  min-height: 50px !important;
+  padding: 12px 17px !important;
+  gap: 14px !important;
+  font-size: 15px !important;
+  border-radius: 11px !important;
+  font-weight: 500 !important;
+}
+section[data-testid="stSidebar"] [class*="st-key-nav_"] button [data-testid="stIconMaterial"] {
+  font-size: 21px !important;
+}
+section[data-testid="stSidebar"] [class*="st-key-nav_"] button:hover {
+  background: rgba(56, 185, 121, .11) !important;
+}
+section[data-testid="stSidebar"] [class*="st-key-nav_"] button:focus-visible {
+  outline: 2px solid var(--color-accent) !important;
+}
+@media (max-width: 900px) {
+  :root { --sidebar-w: min(336px, 88vw); }
+  section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+    padding: 22px 16px 26px !important;
+  }
+  section[data-testid="stSidebar"] [class*="st-key-nav_"] button {
+    min-height: 46px !important;
+    font-size: 14px !important;
+  }
+}
+
 hr { border-color: var(--color-border) !important; }
 
 @media (max-width: 900px) {
@@ -687,10 +785,10 @@ hr { border-color: var(--color-border) !important; }
 def render_sidebar_brand() -> None:
     """Display the shipped PNG icon; avoid Streamlit/Pillow SVG parsing."""
     logo_path = Path(__file__).resolve().parent / "assets" / "picky-logo.png"
-    brand_logo, brand_name = st.columns([0.27, 0.73], gap="small", vertical_alignment="center")
+    brand_logo, brand_name = st.columns([0.24, 0.76], gap="small", vertical_alignment="center")
     with brand_logo:
         if logo_path.is_file():
-            st.image(str(logo_path), width=48)
+            st.image(str(logo_path), width=64)
         else:
             # Keep navigation usable even if the image asset is missing.
             st.markdown("🎲")

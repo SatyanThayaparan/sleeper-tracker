@@ -210,11 +210,28 @@ section[data-testid="stSidebar"] [data-baseweb="base-input"] input::placeholder 
 }}
 
 .block-container {{
-  padding-top: 1rem !important;
-  padding-bottom: 2rem !important;
+  padding-top: 0.85rem !important;
+  padding-bottom: 1.75rem !important;
   padding-left: 1.25rem !important;
   padding-right: 1.25rem !important;
   max-width: 1600px !important;
+}}
+
+section[data-testid="stSidebar"] .fx-section-label {{
+  margin-top: 0.35rem !important;
+  margin-bottom: 0.65rem !important;
+}}
+
+.fx-pick-duo + div [data-testid="stHorizontalBlock"] {{
+  align-items: stretch !important;
+}}
+
+.fx-pick-duo ~ [data-testid="stHorizontalBlock"] [data-testid="column"] > div {{
+  height: 100% !important;
+}}
+
+.fx-pick-duo ~ [data-testid="stHorizontalBlock"] [data-testid="stVerticalBlockBorderWrapper"] {{
+  min-height: 100% !important;
 }}
 
 h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {{
@@ -380,7 +397,9 @@ div[data-testid="stMetric"] [data-testid="stMetricValue"] {{
 .fx-hero-copy p {{
   margin: 0 !important;
   color: var(--ink-muted) !important;
-  font-size: 0.92rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  max-width: 52rem;
 }}
 
 .fx-live {{

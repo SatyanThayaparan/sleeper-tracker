@@ -23,7 +23,7 @@ st.set_page_config(
     page_title=f"{APP_NAME} · Draft Board",
     page_icon=_page_icon,
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 inject_css()
 
@@ -278,24 +278,26 @@ def render_picks(board, roster_names, user_selected):
             "No pick options yet. Connect the draft, and make sure the ADP list or a projection CSV is available."
         )
         return
-    if user_selected:
-        st.markdown(
-            "**Your team:** "
-            + (", ".join(roster_names) if roster_names else "no players drafted yet")
-        )
-        if board.get("open_slots"):
+    with st.container(border=True):
+        if user_selected:
             st.markdown(
-                "**Open starter slots:** "
-                + ", ".join(str(slot) for slot in board["open_slots"])
+                "**Your team:** "
+                + (", ".join(roster_names) if roster_names else "no players drafted yet")
             )
-    else:
-        st.caption("Select your Sleeper account in the sidebar to include your roster.")
-    if board.get("reluctant"):
-        st.warning(
-            "Every close alternative also has an injury or a negative headline. These options still include that risk."
-        )
-    render_options(board.get("options") or [])
-    sleeper_col, fade_col = st.columns(2)
+            if board.get("open_slots"):
+                st.markdown(
+                    "**Open starter slots:** "
+                    + ", ".join(str(slot) for slot in board["open_slots"])
+                )
+        else:
+            st.caption("Select your Sleeper account in the sidebar to include your roster.")
+        if board.get("reluctant"):
+            st.warning(
+                "Every close alternative also has an injury or a negative headline. These options still include that risk."
+            )
+        render_options(board.get("options") or [])
+    st.markdown('<div class="fx-pick-duo">', unsafe_allow_html=True)
+    sleeper_col, fade_col = st.columns(2, gap="medium")
     with sleeper_col:
         render_pick_card(
             "Sleeper pick",
@@ -310,10 +312,11 @@ def render_picks(board, roster_names, user_selected):
             "No high-ADP player is clearly ruled out by an injury tag or headline.",
             badge="CAUTION",
         )
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 with st.sidebar:
-    st.markdown("### Connect your draft")
+    st.markdown('<div class="fx-section-label">Connect</div>', unsafe_allow_html=True)
     draft_link = st.text_input("Your Sleeper draft link or ID", value=DEFAULT_DRAFT_URL)
     draft_id_override = draft_id_from_link(draft_link)
     league_id = st.text_input(
@@ -327,11 +330,9 @@ with st.sidebar:
         value=15,
         format_func=lambda x: f"{x} sec",
     )
-    st.caption(
-        "Auto-refresh is on when a league or draft ID is supplied. Source articles refresh every 10 minutes. No account password needed."
-    )
+    st.caption("Auto-refresh when a draft is connected. No Sleeper password required.")
     st.divider()
-    st.markdown("### Rankings / projections")
+    st.markdown('<div class="fx-section-label">Projections</div>', unsafe_allow_html=True)
     uploaded = st.file_uploader("Upload your player rankings or projections CSV", type=["csv"])
     st.download_button(
         "Download Lock-In projection template",
@@ -339,22 +340,27 @@ with st.sidebar:
         file_name="lockin_projection_template.csv",
         mime="text/csv",
     )
-    upside_weight = st.slider("Lock-In upside emphasis (%)", 0, 80, 35, 5)
-    safety_weight = st.slider("Consistency / floor emphasis (%)", 0, 60, 20, 5)
-    st.caption(
-        "Optional CSV columns: upside_fppg, floor_fppg, games_per_week, availability_pct (0–100). All fantasy point values should use league-specific scoring. Missing optional data receives no invented upside or floor bonus."
-    )
-    risk_weight = st.slider("Injury status penalty (%)", 0, 50, 15, 5)
-    fit_bonus = st.slider("Open lineup fit bonus (%)", 0, 25, 15, 1)
-    st.caption(
-        "Baseline is Hashtag Basketball ADP across Yahoo, ESPN, and Fantrax. Headlines from ESPN and Google News move a player up, down, or onto the fade list. A projection CSV replaces the ADP baseline."
-    )
+    with st.expander("Advanced tuning", expanded=False):
+        upside_weight = st.slider("Lock-In upside emphasis (%)", 0, 80, 35, 5)
+        safety_weight = st.slider("Consistency / floor emphasis (%)", 0, 60, 20, 5)
+        risk_weight = st.slider("Injury status penalty (%)", 0, 50, 15, 5)
+        fit_bonus = st.slider("Open lineup fit bonus (%)", 0, 25, 15, 1)
+        st.caption(
+            "Optional CSV: upside_fppg, floor_fppg, games_per_week, availability_pct. "
+            "ADP blend from Hashtag Basketball; headlines from ESPN and Google News."
+        )
 
 render_hero(
     title=APP_NAME,
-    subtitle=f"{APP_TAGLINE} · Hashtag Basketball ADP · roster fit · ESPN and news tone — advisory only; make picks in Sleeper.",
+    subtitle=APP_TAGLINE,
     live=bool(league_id or draft_id_override),
 )
+with st.expander("How Picky ranks players", expanded=False):
+    st.markdown(
+        "Uses Hashtag Basketball ADP (Yahoo, ESPN, Fantrax), your roster fit, Sleeper injury tags, "
+        "and ESPN / Google News tone. Import a projection CSV to replace ADP. "
+        "**Advisory only** — make picks in Sleeper."
+    )
 
 if not league_id and not draft_id_override:
     st.info(
@@ -573,12 +579,16 @@ def live_dashboard():
         adp_frame,
         teams or 12,
     )
-    render_picks(board, [player_name(pid, players, picks) for pid in roster_ids], bool(my_user_id))
-
-    tab1, tab2, tab3 = st.tabs(
-        ["Best available", "Draft board", "Reports & injury news"]
+    tab_pick, tab_board, tab_news = st.tabs(
+        ["Pick now", "Draft board", "Reports & injury news"]
     )
-    with tab1:
+    with tab_pick:
+        st.markdown('<div class="fx-section-label">Recommendations</div>', unsafe_allow_html=True)
+        render_picks(
+            board,
+            [player_name(pid, players, picks) for pid in roster_ids],
+            bool(my_user_id),
+        )
         if not board["rows"]:
             if board["origin"] == "projection":
                 st.warning("No available players matched your rankings file.")
@@ -643,15 +653,16 @@ def live_dashboard():
                 else:
                     record["Baseline"] = row["baseline"]
                 records.append(record)
-            st.dataframe(pd.DataFrame(records), hide_index=True, width="stretch")
-            st.download_button(
-                "Export available rankings",
-                pd.DataFrame(records).to_csv(index=False),
-                "best_available.csv",
-                "text/csv",
-                key="export_avail",
-            )
-    with tab2:
+            with st.expander("Full rankings table", expanded=False):
+                st.dataframe(pd.DataFrame(records), hide_index=True, width="stretch")
+                st.download_button(
+                    "Export available rankings",
+                    pd.DataFrame(records).to_csv(index=False),
+                    "best_available.csv",
+                    "text/csv",
+                    key="export_avail",
+                )
+    with tab_board:
         rows = []
         for p in reversed(picks[-75:]):
             rows.append(
@@ -675,7 +686,7 @@ def live_dashboard():
                 "**Your drafted players**: "
                 + ", ".join(player_name(pid, players, picks) for pid in roster_ids)
             )
-    with tab3:
+    with tab_news:
         st.caption(
             "RSS sources: ESPN NBA and Google News search. Stories are linked to originals, and may be stale or incomplete. Verify injuries and coaching decisions before drafting. Matching headlines also move the projected best pick."
         )

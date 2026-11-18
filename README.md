@@ -2,6 +2,8 @@
 
 Streamlit draft copilot for Sleeper NBA fantasy leagues — live pick tracking, projections, and pick recommendations.
 
+**Live app:** [satyanthayaparan-sleeper-tracker-app-pmaj1x.streamlit.app](https://satyanthayaparan-sleeper-tracker-app-pmaj1x.streamlit.app)
+
 ## Features
 
 - Connect to a Sleeper draft by ID or URL
@@ -48,7 +50,9 @@ python -m streamlit run app.py
    - Repository: `SatyanThayaparan/sleeper-tracker`
    - Branch: `main`
    - Main file: `app.py`
-3. Deploy — the public URL will look like `https://<name>.streamlit.app`.
+3. Deploy — current public URL:
+
+https://satyanthayaparan-sleeper-tracker-app-pmaj1x.streamlit.app
 
 Direct deploy link (after GitHub auth):
 

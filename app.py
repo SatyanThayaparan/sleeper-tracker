@@ -806,6 +806,18 @@ def live_dashboard(active_page: str):
             else:
                 st.caption("Order uses your imported projections and roster/injury context.")
 
+            r1, r2, r3 = st.columns(3)
+            r1.metric("Ranked players", len(board["rows"]))
+            r2.metric("Ranking method", {
+                "adp": "ADP blend", "projection": "Custom projections",
+            }.get(board["origin"], "Sleeper rank"))
+            r3.metric("Roster aware", "Yes" if my_user_id else "No")
+            if board["origin"] == "adp":
+                st.info("ADP is Average Draft Position. Lower numbers mean a player "
+                        "is typically selected earlier, not that they score fewer points.")
+            if not my_user_id:
+                st.caption("Add your Sleeper account under Settings to include roster fit.")
+            st.markdown("### Available player rankings")
             shown = list(board["rows"][:75])
             labels = {}
             for role, key in (("Fade", "fade"), ("Sleeper", "sleeper")):
@@ -832,7 +844,6 @@ def live_dashboard(active_page: str):
                     "Positions": row["position"],
                     "Team": row["team"],
                     "Injury": row["injury"],
-                    "Roster fit": row["roster"],
                     "Pick tag": labels.get(row["player_id"], ""),
                 }
                 if board["origin"] == "adp":
@@ -862,7 +873,12 @@ def live_dashboard(active_page: str):
             frame = pd.DataFrame(records)
             if filter_pos != "All":
                 frame = frame[frame["Positions"].astype(str).str.contains(filter_pos, na=False)]
-            st.dataframe(frame, hide_index=True, width="stretch")
+            st.dataframe(
+                frame, hide_index=True, width="stretch", height=450,
+                column_config={"ESPN": st.column_config.LinkColumn(
+                    "Player info", display_text="Open ESPN"
+                )},
+            )
             st.download_button(
                 "Export available rankings",
                 frame.to_csv(index=False),

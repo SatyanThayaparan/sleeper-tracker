@@ -685,22 +685,15 @@ hr { border-color: var(--color-border) !important; }
 
 
 def render_sidebar_brand() -> None:
-    """Compact branded wordmark using the green dice tile from the reference."""
-    # Streamlit accepts raw SVG XML as a string, not as arbitrary image bytes.
-    dice_svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
-      <rect width="48" height="48" rx="11" fill="#38B979"/>
-      <g stroke="#0D2330" stroke-width="3" stroke-linejoin="round" fill="none">
-        <rect x="19" y="8" width="21" height="21" rx="4" transform="rotate(-42 29.5 18.5)"/>
-        <rect x="8" y="19" width="23" height="23" rx="4"/>
-      </g>
-      <g fill="#0D2330">
-        <circle cx="15" cy="26" r="2.1"/><circle cx="24" cy="35" r="2.1"/>
-        <circle cx="23.5" cy="13.5" r="1.9"/><circle cx="32.5" cy="20" r="1.9"/>
-      </g>
-    </svg>"""
+    """Display the shipped PNG icon; avoid Streamlit/Pillow SVG parsing."""
+    logo_path = Path(__file__).resolve().parent / "assets" / "picky-logo.png"
     brand_logo, brand_name = st.columns([0.27, 0.73], gap="small", vertical_alignment="center")
     with brand_logo:
-        st.image(dice_svg, width=48)
+        if logo_path.is_file():
+            st.image(str(logo_path), width=48)
+        else:
+            # Keep navigation usable even if the image asset is missing.
+            st.markdown("🎲")
     with brand_name:
         st.markdown(
             '<div class="fx-wordmark">Picky</div>',

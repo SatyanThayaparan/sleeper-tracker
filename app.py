@@ -630,10 +630,10 @@ def live_dashboard(active_page: str):
             unsafe_allow_html=True,
         )
         m1, m2, m3, m4 = st.columns(4, gap="medium")
-        m1.metric("Picks completed", len(picks), border=False)
-        m2.metric("Next overall pick", "—" if is_complete else next_pick, border=False)
-        m3.metric("Draft teams", teams or "—", border=False)
-        m4.metric("Draft status", safe_status, border=False)
+        m1.metric("Picks completed", len(picks))
+        m2.metric("Next overall pick", "—" if is_complete else next_pick)
+        m3.metric("Draft teams", teams or "—")
+        m4.metric("Draft status", safe_status)
         st.caption(
             "Last checked: "
             + datetime.now(timezone.utc).strftime("%H:%M:%S UTC")

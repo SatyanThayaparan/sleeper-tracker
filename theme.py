@@ -83,22 +83,14 @@ span[data-testid="stIconMaterial"],
   text-transform: none !important;
 }}
 
-/* Fixed sidebar — pinned, non-resizable width */
+/* Sidebar — fixed width, scrollable body, native open/close */
 section[data-testid="stSidebar"] {{
-  position: fixed !important;
-  left: 0 !important;
-  top: 0 !important;
-  bottom: 0 !important;
   width: 21rem !important;
   min-width: 21rem !important;
   max-width: 21rem !important;
-  height: 100vh !important;
-  height: 100dvh !important;
-  z-index: 1002 !important;
   background: var(--sidebar) !important;
   border-right: var(--border-w) solid var(--border) !important;
-  box-shadow: 8px 0 28px rgba(0, 0, 0, 0.35);
-  overflow: hidden !important;
+  box-shadow: 4px 0 18px rgba(0, 0, 0, 0.22);
   resize: none !important;
 }}
 
@@ -109,45 +101,23 @@ section[data-testid="stSidebar"] {{
   width: 0 !important;
 }}
 
-/* Hide Streamlit collapse chevrons (non-functional on overlay layout) */
-[data-testid="stSidebarCollapsedControl"],
-[data-testid="stSidebarExpandedControl"],
-[data-testid="stSidebarCollapseButton"],
-[data-testid="stSidebarNav"] [data-testid="stIconMaterial"],
-button[kind="headerNoPadding"] {{
-  display: none !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-}}
-
-section[data-testid="stSidebar"] > div:first-child {{
-  height: 100% !important;
-  overflow: hidden !important;
+section[data-testid="stSidebar"] > div {{
   background: var(--sidebar) !important;
 }}
 
 section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {{
-  height: 100% !important;
-  max-height: 100vh !important;
-  max-height: 100dvh !important;
+  max-height: calc(100vh - 3.5rem) !important;
+  max-height: calc(100dvh - 3.5rem) !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;
+  overscroll-behavior: contain;
   background: var(--sidebar) !important;
-  padding-top: 0.75rem !important;
-  padding-bottom: 1.25rem !important;
+  padding-top: 0.5rem !important;
+  padding-bottom: 1.5rem !important;
 }}
 
 section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {{
   background: var(--sidebar) !important;
-}}
-
-/* Keep main stage full-width whether sidebar is open or closed */
-section.main,
-[data-testid="stAppViewContainer"] > .main,
-div[data-testid="stAppViewContainer"] section.main {{
-  margin-left: 0 !important;
-  width: 100% !important;
-  max-width: 100% !important;
 }}
 
 section[data-testid="stSidebar"] [data-testid="stAlert"] {{
@@ -376,6 +346,16 @@ div[data-testid="stMetric"] [data-testid="stMetricValue"] {{
   object-fit: cover !important;
   display: block !important;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35) !important;
+  pointer-events: none !important;
+  cursor: default !important;
+  user-select: none !important;
+}}
+
+.fx-hero-icon [data-testid="stImage"] button,
+.fx-hero-icon [data-testid="stElementToolbar"] {{
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }}
 
 .fx-kicker {{

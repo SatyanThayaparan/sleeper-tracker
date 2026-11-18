@@ -9,6 +9,7 @@ import feedparser
 
 from adp import ADP_URL, fetch_adp_rows, match_adp
 from recommend import build_recommendations
+from ai import openai_configured
 from theme import (
     APP_NAME,
     APP_TAGLINE,
@@ -333,6 +334,17 @@ def render_settings_form(league_id_hint: str = ""):
             "Baseline is Hashtag Basketball ADP across Yahoo, ESPN, and Fantrax. "
             "A projection CSV replaces the ADP baseline."
         )
+
+    with st.container(border=True):
+        st.markdown('<p class="fx-settings-title">OpenAI</p>', unsafe_allow_html=True)
+        if openai_configured():
+            st.success("ChatGPT API key loaded from local secrets (.env / Streamlit secrets).")
+        else:
+            st.warning(
+                "No OPENAI_API_KEY found. Add it to a local `.env` or `.streamlit/secrets.toml` "
+                "(both are gitignored)."
+            )
+        st.caption("The key never ships in git. For Streamlit Cloud, set the same secret in the app settings.")
     return uploaded
 
 

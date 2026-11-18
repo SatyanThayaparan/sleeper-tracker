@@ -82,6 +82,16 @@ sleeper-tracker/
 └── requirements.txt
 ```
 
+## Secrets (OpenAI / ChatGPT)
+
+Local keys stay out of git (`.env` and `.streamlit/secrets.toml` are gitignored).
+
+1. Copy `.env.example` → `.env` and set `OPENAI_API_KEY=...`
+2. Or put `OPENAI_API_KEY = "..."` in `.streamlit/secrets.toml`
+3. On Streamlit Community Cloud, add `OPENAI_API_KEY` under **App settings → Secrets**
+
+`ai.py` loads the key for optional ChatGPT helpers. Never commit real keys.
+
 ## Notes
 
 - No Sleeper password or API key is required for read-only draft polling.

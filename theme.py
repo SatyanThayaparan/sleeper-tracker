@@ -83,14 +83,15 @@ span[data-testid="stIconMaterial"],
   text-transform: none !important;
 }}
 
-/* Fixed sidebar — pinned to viewport; main content does not reflow */
+/* Fixed sidebar — pinned, non-resizable width */
 section[data-testid="stSidebar"] {{
   position: fixed !important;
   left: 0 !important;
   top: 0 !important;
   bottom: 0 !important;
-  width: var(--sidebar-width, 21rem) !important;
-  min-width: var(--sidebar-width, 21rem) !important;
+  width: 21rem !important;
+  min-width: 21rem !important;
+  max-width: 21rem !important;
   height: 100vh !important;
   height: 100dvh !important;
   z-index: 1002 !important;
@@ -98,6 +99,25 @@ section[data-testid="stSidebar"] {{
   border-right: var(--border-w) solid var(--border) !important;
   box-shadow: 8px 0 28px rgba(0, 0, 0, 0.35);
   overflow: hidden !important;
+  resize: none !important;
+}}
+
+[data-testid="stSidebarResizeHandle"],
+[data-testid="stSidebarResizer"] {{
+  display: none !important;
+  pointer-events: none !important;
+  width: 0 !important;
+}}
+
+/* Hide Streamlit collapse chevrons (non-functional on overlay layout) */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="stSidebarExpandedControl"],
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarNav"] [data-testid="stIconMaterial"],
+button[kind="headerNoPadding"] {{
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }}
 
 section[data-testid="stSidebar"] > div:first-child {{
@@ -128,12 +148,6 @@ div[data-testid="stAppViewContainer"] section.main {{
   margin-left: 0 !important;
   width: 100% !important;
   max-width: 100% !important;
-}}
-
-[data-testid="stSidebarCollapsedControl"],
-[data-testid="stSidebarExpandedControl"] {{
-  position: fixed !important;
-  z-index: 1003 !important;
 }}
 
 section[data-testid="stSidebar"] [data-testid="stAlert"] {{
@@ -335,6 +349,35 @@ div[data-testid="stMetric"] [data-testid="stMetricValue"] {{
   overflow: hidden;
 }}
 
+/* Hero banner */
+[data-testid="stVerticalBlockBorderWrapper"]:has(.fx-hero-copy) {{
+  padding: 1.05rem 1.25rem !important;
+}}
+
+[data-testid="stVerticalBlockBorderWrapper"]:has(.fx-hero-copy) [data-testid="stHorizontalBlock"] {{
+  align-items: center !important;
+  gap: 1rem !important;
+}}
+
+.fx-hero-icon [data-testid="stImage"] {{
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}}
+
+.fx-hero-icon [data-testid="stImage"] img {{
+  width: 92px !important;
+  height: 92px !important;
+  min-width: 92px !important;
+  min-height: 92px !important;
+  border-radius: 18px !important;
+  object-fit: cover !important;
+  display: block !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35) !important;
+}}
+
 .fx-kicker {{
   display: inline-flex;
   align-items: center;
@@ -344,7 +387,7 @@ div[data-testid="stMetric"] [data-testid="stMetricValue"] {{
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--accent) !important;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.35rem;
 }}
 
 .fx-hero-copy h1 {{
@@ -426,11 +469,15 @@ def render_hero(*, title: str, subtitle: str, live: bool = False) -> None:
         else ""
     )
     with st.container(border=True):
-        left, right = st.columns([0.08, 0.92], vertical_alignment="center")
-        with left:
+        icon_col, text_col = st.columns(
+            [0.11, 0.89], vertical_alignment="center", gap="medium"
+        )
+        with icon_col:
             if ICON_PATH.is_file():
-                st.image(str(ICON_PATH), width=58)
-        with right:
+                st.markdown('<div class="fx-hero-icon">', unsafe_allow_html=True)
+                st.image(str(ICON_PATH), width=92)
+                st.markdown("</div>", unsafe_allow_html=True)
+        with text_col:
             st.markdown(
                 f"""
 <div class="fx-hero-copy">

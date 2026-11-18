@@ -473,22 +473,23 @@ except Exception as e:
     st.error(f"Cannot load draft {draft_id}: {e}")
     st.stop()
 
-league_name = league.get("name") or "Connected Draft"
-st.markdown(f'<div class="fx-section-label">{league_name}</div>', unsafe_allow_html=True)
-st.caption(
-    f'Draft ID: {draft_id} • League ID: {league_id or "unavailable"} • Draft status: {draft.get("status", "unknown")} • Scoring: Lock-In (user-selected)'
-)
-with st.expander("Scoring rules retrieved from your Sleeper league"):
-    st.json(
-        {
-            "scoring_settings": league.get("scoring_settings") or {},
-            "roster_positions": league.get("roster_positions") or [],
-            "draft_settings": draft.get("settings") or {},
-        }
-    )
+with st.container(border=True):
+    league_name = league.get("name") or "Connected Draft"
+    st.markdown(f'<div class="fx-section-label">{league_name}</div>', unsafe_allow_html=True)
     st.caption(
-        "Compare imported player projections with these exact scoring settings; the app does not automatically convert NBA box scores into your custom fantasy projections."
+        f'Draft ID: {draft_id} • League ID: {league_id or "unavailable"} • Draft status: {draft.get("status", "unknown")} • Scoring: Lock-In (user-selected)'
     )
+    with st.expander("Scoring rules retrieved from your Sleeper league"):
+        st.json(
+            {
+                "scoring_settings": league.get("scoring_settings") or {},
+                "roster_positions": league.get("roster_positions") or [],
+                "draft_settings": draft.get("settings") or {},
+            }
+        )
+        st.caption(
+            "Compare imported player projections with these exact scoring settings; the app does not automatically convert NBA box scores into your custom fantasy projections."
+        )
 
 
 @st.fragment(run_every=f"{refresh}s")
@@ -507,18 +508,20 @@ def live_dashboard():
     teams = int((fresh_draft.get("settings") or {}).get("teams") or (league.get("total_rosters") or 0))
     rounds = int((fresh_draft.get("settings") or {}).get("rounds") or 0)
     next_pick = len(picks) + 1
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Picks completed", len(picks))
-    c2.metric("Next overall pick", next_pick)
-    c3.metric("Draft teams", teams or "—")
-    c4.metric("Draft status", fresh_draft.get("status", "unknown"))
-    st.caption(
-        "Last checked: "
-        + datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
-        + " • Refreshing every "
-        + str(refresh)
-        + " sec"
-    )
+    with st.container(border=True):
+        st.markdown('<div class="fx-section-label">Draft pulse</div>', unsafe_allow_html=True)
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Picks completed", len(picks))
+        c2.metric("Next overall pick", next_pick)
+        c3.metric("Draft teams", teams or "—")
+        c4.metric("Draft status", fresh_draft.get("status", "unknown"))
+        st.caption(
+            "Last checked: "
+            + datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
+            + " • Refreshing every "
+            + str(refresh)
+            + " sec"
+        )
 
     roster_ids = []
     if my_user_id:

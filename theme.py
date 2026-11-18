@@ -32,14 +32,14 @@ DARK = {
     "surface_raised": "#2A3148",
     "ink": "#E8ECF5",
     "ink_muted": "#A7B0C5",
-    "border": "#4A5573",
+    "border": "#6B7899",
     "accent": "#78B159",
     "accent_soft": "rgba(120, 177, 89, 0.18)",
     "positive": "#78B159",
     "gold": "#D4AF37",
-    "sidebar": "#161B2A",
+    "sidebar": "#0F131F",
     "input_bg": "#1A2032",
-    "shadow": "0 10px 28px rgba(0, 0, 0, 0.4)",
+    "shadow": "0 10px 28px rgba(0, 0, 0, 0.45)",
 }
 
 
@@ -112,8 +112,16 @@ section[data-testid="stSidebar"] {{
   border-right: var(--border-w) solid var(--border) !important;
 }}
 
-section[data-testid="stSidebar"] > div:first-child {{
+section[data-testid="stSidebar"] > div:first-child,
+section[data-testid="stSidebar"] [data-testid="stSidebarContent"],
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {{
   background: var(--sidebar) !important;
+}}
+
+/* Kill Streamlit default cream/teal leaks in dark sidebar */
+section[data-testid="stSidebar"] [data-testid="stAlert"] {{
+  background: var(--surface) !important;
+  color: var(--ink) !important;
 }}
 
 section[data-testid="stSidebar"] h1,

@@ -375,7 +375,10 @@ def render_roster_grid(roster_state, players, picks):
                       for item in roster_state["utility"])
     bench = "".join(roster_player_card(item, players, picks)
                     for item in roster_state["bench"])
-    st.markdown(
+    # st.markdown processes raw HTML as Markdown; complex block-level
+    # markup can lose its div/section structure and flatten into plain text.
+    # st.html renders this sanitized, escaped HTML as actual DOM elements.
+    st.html(
         '<div class="fx-roster-layout">'
         '<section class="fx-roster-main">'
         '<div class="fx-roster-heading">Starting eight</div>'
@@ -384,7 +387,6 @@ def render_roster_grid(roster_state, players, picks):
         '<div class="fx-roster-heading">Utility & bench</div>'
         f'<div class="fx-roster-extras">{utility}{bench or "<div class=\'fx-roster-note\'>No bench picks yet</div>"}</div>'
         '</section></div>',
-        unsafe_allow_html=True,
     )
 
 
@@ -396,11 +398,10 @@ def render_scout_report(entry, candidates):
         with st.expander("Previous AI report"):
             st.markdown(entry.get("text") or "No report available.")
         return
-    st.markdown(
+    st.html(
         '<div class="fx-scout-finished" role="status">'
         '✓ AI research complete — player insights are ready.'
         '</div>',
-        unsafe_allow_html=True,
     )
     with st.container(border=True):
         st.caption("AI SCOUT · TOP RECOMMENDATION")
@@ -905,13 +906,12 @@ def live_dashboard(active_page: str):
 
         # 3. AI Scout: unlocked once in this session, auto-runs ONCE when
         # Sleeper confirms this is your turn. Does not call OpenAI on other refreshes.
-        st.markdown(
+        st.html(
             '<div class="fx-scout-heading">'
             '<span class="fx-scout-mark">✦</span>'
             '<div><strong>Picky AI Scout</strong>'
             '<small>NBA research · Roster fit · Next-turn draft intelligence</small>'
             '</div></div>',
-            unsafe_allow_html=True,
         )
         if is_complete:
             st.info("Draft complete. Your live scouting reports are no longer active.")
@@ -1077,9 +1077,8 @@ def live_dashboard(active_page: str):
                             metrics.append(f"Blended ADP {float(adp):.1f}")
                         if metrics:
                             st.caption(" · ".join(metrics))
-                        st.markdown(
-                            '<span class="fx-scout-reason-label">Why consider this player?</span>',
-                            unsafe_allow_html=True,
+                        st.html(
+                            '<span class="fx-scout-reason-label">Why consider this player?</span>'
                         )
                         st.write(
                             player_ai.get("draft_fit")

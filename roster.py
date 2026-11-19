@@ -67,6 +67,64 @@ def assign_lineup(roster_ids, players, slots):
     }
 
 
+
+UTILITY_SLOTS = {"UTIL", "UTILITY", "FLEX"}
+
+
+def chronological_roster(roster_ids, players, slots, *, pick_numbers=None, main_count=8):
+    """Display-oriented allocation: drafted-first players keep priority.
+
+    Use the league's actual eligible positions: the earliest drafted player
+    gets the first compatible open top-eight slot, then remaining flex/utility
+    slots. Later draft picks never displace earlier assignments.
+
+    A drafted player with no currently compatible open slot is shown as bench.
+    This is a projection, NOT an official Sleeper lineup assignment.
+    """
+    entries = [
+        {"player_id": str(pid),
+         "pick_number": (pick_numbers[index] if pick_numbers and
+                         index < len(pick_numbers) else None),
+         "draft_order": index + 1}
+        for index, pid in enumerate(roster_ids)
+    ]
+    starting = [str(slot).upper() for slot in slots
+                if str(slot).upper() not in BENCH]
+    primary = [{"slot": slot, "player_id": None, "group": "starter",
+                "pick_number": None, "draft_order": None}
+               for slot in starting[:main_count]]
+    utility = [{"slot": slot, "player_id": None, "group": "utility",
+                "pick_number": None, "draft_order": None}
+               for slot in starting[main_count:]]
+    bench = []
+    for entry in entries:
+        pid = entry["player_id"]
+        eligible = positions_of(players.get(pid, {}))
+        target = next(
+            (slot for slot in primary + utility
+             if slot["player_id"] is None and
+             slot_compatible(slot["slot"], eligible)),
+            None,
+        )
+        if target is not None:
+            target.update(entry)
+        else:
+            bench.append(dict(entry, slot="BN", group="bench"))
+
+    lineup = primary + utility
+    return {
+        "lineup": lineup,
+        "primary": primary,
+        "utility": utility,
+        "bench": bench,
+        "bench_ids": [item["player_id"] for item in bench],
+        "open_slots": [slot["slot"] for slot in lineup if slot["player_id"] is None],
+        "filled": sum(1 for item in lineup if item["player_id"] is not None),
+        "total": len(lineup),
+    }
+
+
+
 def next_user_picks(picks, draft, user_id, teams, rounds):
     """Calculate upcoming snake/linear picks for a selected draft account."""
     if not user_id or not teams or not rounds:

@@ -11,6 +11,7 @@ import feedparser
 from adp import ADP_URL, fetch_adp_rows, match_adp
 from recommend import build_recommendations
 from ai import openai_configured
+from config import default_draft_url
 from theme import (
     APP_NAME,
     APP_TAGLINE,
@@ -33,8 +34,8 @@ st.set_page_config(
 )
 inject_css()
 
-DEFAULT_DRAFT_ID = "1416933113287770112"
-DEFAULT_DRAFT_URL = "https://sleeper.com/draft/nba/1416933113287770112?ftue=commish"
+# Base test draft lives in gitignored .env as PICKY_DEFAULT_DRAFT_URL (not hardcoded).
+DEFAULT_DRAFT_URL = default_draft_url()
 
 if "page" not in st.session_state:
     st.session_state.page = "overview"

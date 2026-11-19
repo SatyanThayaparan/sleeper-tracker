@@ -90,7 +90,11 @@ class ScoutTests(unittest.TestCase):
                             {"name": "Example Guard", "role_outlook": "Starter",
                              "recent_findings": "No recent evidence supplied.",
                              "availability_risk": "Unverified",
-                             "draft_fit": "Open PG", "evidence_date": "Unverified"}
+                             "draft_fit": "Open PG", "evidence_date": "Unverified"},
+                            {"name": "Example Wing", "role_outlook": "Bench",
+                             "recent_findings": "No recent evidence supplied.",
+                             "availability_risk": "Unverified",
+                             "draft_fit": "Open SF", "evidence_date": "Unverified"}
                         ],
                         "alternatives": ["Example Wing"],
                         "cautions": ["Verify any injury updates"],
@@ -151,6 +155,18 @@ class ScoutTests(unittest.TestCase):
         self.assertTrue(auto_research_due(session, key, on_clock=True, **common))
         record_auto_attempt(session, key)
         self.assertFalse(auto_research_due(session, key, on_clock=True, **common))
+
+    def test_turn_report_stays_available_until_next_pick(self):
+        key = turn_research_key("draft", "me", 27)
+        session = {"ai_scout_cache": {key: {
+            "timestamp": 100, "report": {"recommended_player": "Example Guard"},
+            "sources": [],
+        }}}
+        self.assertIsNotNone(cache_entry(session, key, 100 + CACHE_TTL_SECONDS * 30))
+        self.assertIsNone(cache_entry(
+            session, turn_research_key("draft", "me", 39),
+            100 + CACHE_TTL_SECONDS * 30,
+        ))
 
     def test_turn_key_is_stable_within_pick_and_new_each_turn(self):
         self.assertEqual(turn_research_key("draft1", "me", 27),

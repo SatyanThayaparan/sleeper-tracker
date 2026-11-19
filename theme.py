@@ -480,6 +480,56 @@ div[data-testid="stMetric"] [data-testid="stMetricValue"] {
 .fx-pick-needs span { background:var(--color-accent-subtle); color:var(--color-accent);
   border-radius:999px; padding:6px 11px; font-size:12px; font-weight:600; }
 
+/* AI Scout: one unmistakable call to action, scoped to its keyed Streamlit button. */
+[class*="st-key-scout_research_"] button,
+[class*="st-key-scout_research_"] button[kind="primary"] {
+  width: 100% !important;
+  min-height: 60px !important;
+  padding: 16px 24px !important;
+  justify-content: center !important;
+  background: linear-gradient(110deg, #38B979 0%, #45D69A 65%, #29AA83 100%) !important;
+  color: #071A14 !important;
+  border: 1px solid #6EE7B7 !important;
+  border-radius: 14px !important;
+  font-size: 17px !important;
+  font-weight: 800 !important;
+  letter-spacing: .01em;
+  box-shadow: 0 0 0 1px rgba(56,185,121,.16), 0 8px 26px rgba(56,185,121,.2) !important;
+  transition: filter .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+[class*="st-key-scout_research_"] button:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 9px 30px rgba(56,185,121,.36) !important;
+}
+[class*="st-key-scout_research_"] button:focus-visible {
+  outline: 3px solid #C2F7DC !important;
+  outline-offset: 3px;
+}
+[class*="st-key-scout_research_"] button [data-testid="stIconMaterial"],
+[class*="st-key-scout_research_"] button p {
+  color: #071A14 !important;
+  font-weight: 800 !important;
+}
+.fx-scout-complete {
+  margin: 10px 0 16px;
+  padding: 13px 17px;
+  border: 1px solid #45C98A;
+  border-radius: 12px;
+  background: rgba(56,185,121,.14);
+  color: #A3F5CE;
+  font-size: 14px;
+  font-weight: 650;
+  animation: fx-scout-dismiss 8s forwards;
+}
+@keyframes fx-scout-dismiss {
+  0%, 78% { opacity: 1; max-height: 90px; padding-top: 13px; padding-bottom: 13px; margin-bottom: 16px; }
+  100% { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; margin-bottom: 0; border-width: 0; overflow: hidden; visibility: hidden; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-scout-complete { animation: none; }
+}
+
 /* Page chrome */
 .fx-page-header {
   display: flex;

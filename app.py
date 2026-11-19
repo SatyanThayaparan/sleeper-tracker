@@ -1,4 +1,5 @@
 import re
+import time
 from html import escape as escape_html
 from datetime import datetime, timezone
 from urllib.parse import quote
@@ -967,12 +968,23 @@ def live_dashboard(active_page: str):
                     if not scout_access_granted(access_value):
                         st.caption("No AI calls will be made until access is unlocked.")
                     elif cached:
+                        completion = st.session_state.get("scout_completed_notice")
+                        if (completion and completion.get("decision") == decision
+                                and 0 <= time.time() - completion["at"] < 8):
+                            st.markdown(
+                                '<div class="fx-scout-complete" role="status">'
+                                '✓ Research complete — your AI scouting report is ready.'
+                                '</div>',
+                                unsafe_allow_html=True,
+                            )
                         render_scout_report(cached)
                     elif research_allowed(st.session_state, decision):
                         if st.button(
-                            "Research current Top 5 with AI Scout",
+                            "Run AI Scout · Research My Top 5",
                             key=f"scout_research_{decision}",
                             type="primary",
+                            icon=":material/auto_awesome:",
+                            use_container_width=True,
                         ):
                             with st.status(
                                 "Researching NBA players and recent reports…",
@@ -999,6 +1011,10 @@ def live_dashboard(active_page: str):
                                         label="Scouting report ready",
                                         state="complete", expanded=False,
                                     )
+                                    st.session_state["scout_completed_notice"] = {
+                                        "decision": decision,
+                                        "at": time.time(),
+                                    }
                                     st.rerun(scope="fragment")
                     else:
                         st.warning(

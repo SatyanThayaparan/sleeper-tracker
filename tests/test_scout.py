@@ -1,5 +1,6 @@
 """No paid network calls: AI Scout contract and cache tests."""
 import time
+import json
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -79,21 +80,59 @@ class ScoutTests(unittest.TestCase):
             def create(self, **kwargs):
                 captured.append(kwargs)
                 return SimpleNamespace(
-                    output_text="A mock scouting report",
+                    output_text=json.dumps({
+                        "recommended_player": "Example Guard",
+                        "headline": "Strong guard option",
+                        "why_this_pick": "Fits the open PG role.",
+                        "confidence": "medium",
+                        "players": [
+                            {"name": "Example Guard", "role_outlook": "Starter",
+                             "recent_findings": "No recent evidence supplied.",
+                             "availability_risk": "Unverified",
+                             "draft_fit": "Open PG", "evidence_date": "Unverified"}
+                        ],
+                        "alternatives": ["Example Wing"],
+                        "cautions": ["Verify any injury updates"],
+                        "research_summary": "Researched news and role.",
+                    }),
                     output=[SimpleNamespace(content=[
                         SimpleNamespace(annotations=[])
                     ])],
                 )
         client = SimpleNamespace(responses=FakeResponses())
         result = run_scout(self.players, open_slots=["PG"], client=client)
-        self.assertEqual(result["text"], "A mock scouting report")
+        self.assertEqual(result["report"]["recommended_player"], "Example Guard")
         self.assertEqual(captured[0]["tools"][0]["type"], "web_search")
         self.assertEqual(captured[0]["store"], False)
+        self.assertEqual(captured[0]["text"]["format"]["type"], "json_schema")
+        self.assertIn("research", captured[0]["instructions"].lower())
         self.assertEqual(len(captured), 1)
 
     def test_reject_more_than_five(self):
         with self.assertRaises(ValueError):
             run_scout(self.players * 3, open_slots=[], client=object())
+
+
+    def test_reject_candidate_outside_shortlist(self):
+        class WrongPlayer:
+            def create(self, **_kwargs):
+                return SimpleNamespace(
+                    output_text=json.dumps({
+                        "recommended_player": "Not in list", "players": []
+                    }),
+                    output=[],
+                )
+        client = SimpleNamespace(responses=WrongPlayer())
+        with self.assertRaisesRegex(RuntimeError, "outside your current shortlist"):
+            run_scout(self.players, open_slots=["PG"], client=client)
+
+    def test_reject_unparseable_report(self):
+        class BadJSON:
+            def create(self, **_kwargs):
+                return SimpleNamespace(output_text="not JSON", output=[])
+        with self.assertRaisesRegex(RuntimeError, "unreadable structured"):
+            run_scout(self.players, open_slots=["PG"],
+                      client=SimpleNamespace(responses=BadJSON()))
 
 
 if __name__ == "__main__":

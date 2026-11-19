@@ -412,7 +412,12 @@ with st.sidebar:
     render_connection_card(
         connected=_preview_connected,
         league_name=st.session_state.get("sidebar_league_name", "Configured draft") if _preview_connected else "",
-        meta="Manage under Settings" if _preview_connected else "Open Settings to connect",
+        meta=(
+            f'Team: {st.session_state.get("cfg_team_select")}'
+            if st.session_state.get("cfg_team_select") not in (None, "", "Not selected")
+            else (f'Team: {st.session_state.get("cfg_my_user")}'
+                  if st.session_state.get("cfg_my_user") else "Manage under Settings")
+        ) if _preview_connected else "Open Settings to connect",
     )
     nav_icons = {
         "overview": ":material/home:",
@@ -760,54 +765,57 @@ def live_dashboard(active_page: str):
         if board.get("reluctant"):
             st.warning("The available pool includes players with injuries or unfavorable headlines.")
 
-        st.markdown("### Top 5 players for your next pick")
-        st.caption("Highest-ranked available options for this decision. "
-                   "These are not forced to represent different positions.")
-        top_five = top_five_for_pick(board.get("rows") or [])
-        if top_five:
-            top_frame = pd.DataFrame([
-                {
-                    "Player": p["player"],
-                    "Position": p.get("position") or "—",
-                    "NBA team": p.get("team") or "—",
-                    "Rank value": projection_value(p, board.get("origin")),
-                    "Roster fit": p.get("roster") if my_user_id else "Select your team",
-                }
-                for p in top_five
-            ])
-            st.dataframe(top_frame, hide_index=True, width="stretch", height=230)
-            # Only offer links for the candidate currently being examined.
-            player_choices = [p["player"] for p in top_five]
-            examined = st.selectbox(
-                "Research a player from this shortlist", player_choices,
-                key=f"pick_focus_{draft_id}_{upcoming[0] if upcoming else 'complete'}",
-            )
-            focused = next((p for p in top_five if p["player"] == examined), top_five[0])
-            with st.expander(f"Details and sources: {examined}"):
-                st.caption(f'{focused.get("position") or "Position unknown"} · '
-                           f'{focused.get("team") or "Free agent"} · '
-                           f'Injury: {focused.get("injury") or "Not listed"}')
-                st.write(focused.get("roster") or "No roster fit information.")
-                render_references(focused)
+        if is_complete:
+            st.caption("The draft has finished, so live pick research is hidden. Open My Team for your roster.")
         else:
-            st.info("No available players could be ranked for this pick.")
-        left, right = st.columns(2, gap="medium")
-        with left:
-            render_pick_card(
-                "Sleeper pick",
-                board.get("sleeper"),
-                "No later ADP stands out in the next six rounds.",
-                badge="VALUE",
-                badge_class="fx-badge-value",
-            )
-        with right:
-            render_pick_card(
-                "Fade",
-                board.get("fade"),
-                "No high-ADP player is clearly ruled out by an injury tag or headline.",
-                badge="CAUTION",
-                badge_class="fx-badge-caution",
-            )
+            st.markdown("### Top 5 players for your next pick")
+            st.caption("Highest-ranked available options for this decision. "
+                       "These are not forced to represent different positions.")
+            top_five = top_five_for_pick(board.get("rows") or [])
+            if top_five:
+                top_frame = pd.DataFrame([
+                    {
+                        "Player": p["player"],
+                        "Position": p.get("position") or "—",
+                        "NBA team": p.get("team") or "—",
+                        "Rank value": projection_value(p, board.get("origin")),
+                        "Roster fit": p.get("roster") if my_user_id else "Select your team",
+                    }
+                    for p in top_five
+                ])
+                st.dataframe(top_frame, hide_index=True, width="stretch", height=230)
+                # Only offer links for the candidate currently being examined.
+                player_choices = [p["player"] for p in top_five]
+                examined = st.selectbox(
+                    "Research a player from this shortlist", player_choices,
+                    key=f"pick_focus_{draft_id}_{upcoming[0] if upcoming else 'complete'}",
+                )
+                focused = next((p for p in top_five if p["player"] == examined), top_five[0])
+                with st.expander(f"Details and sources: {examined}"):
+                    st.caption(f'{focused.get("position") or "Position unknown"} · '
+                               f'{focused.get("team") or "Free agent"} · '
+                               f'Injury: {focused.get("injury") or "Not listed"}')
+                    st.write(focused.get("roster") or "No roster fit information.")
+                    render_references(focused)
+            else:
+                st.info("No available players could be ranked for this pick.")
+            left, right = st.columns(2, gap="medium")
+            with left:
+                render_pick_card(
+                    "Sleeper pick",
+                    board.get("sleeper"),
+                    "No later ADP stands out in the next six rounds.",
+                    badge="VALUE",
+                    badge_class="fx-badge-value",
+                )
+            with right:
+                render_pick_card(
+                    "Fade",
+                    board.get("fade"),
+                    "No high-ADP player is clearly ruled out by an injury tag or headline.",
+                    badge="CAUTION",
+                    badge_class="fx-badge-caution",
+                )
 
     elif active_page == "board":
         completed = draft_status in ("complete", "completed")

@@ -827,8 +827,6 @@ def live_dashboard(active_page: str):
                     )
                     if not scout_access_granted(access_value):
                         st.caption("Enter the private access code to unlock paid research.")
-                    else:
-                        render_ai_scout = True
                     decision = research_key(
                         draft_id,
                         upcoming[0] if upcoming else None,

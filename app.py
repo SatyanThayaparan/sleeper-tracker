@@ -35,7 +35,7 @@ st.set_page_config(
     page_title=f"{APP_NAME} · Draft Board",
     page_icon=_page_icon,
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
 inject_css()
 
@@ -905,7 +905,14 @@ def live_dashboard(active_page: str):
 
         # 3. AI Scout: unlocked once in this session, auto-runs ONCE when
         # Sleeper confirms this is your turn. Does not call OpenAI on other refreshes.
-        st.markdown("### Picky AI Scout")
+        st.markdown(
+            '<div class="fx-scout-heading">'
+            '<span class="fx-scout-mark">✦</span>'
+            '<div><strong>Picky AI Scout</strong>'
+            '<small>NBA research · Roster fit · Next-turn draft intelligence</small>'
+            '</div></div>',
+            unsafe_allow_html=True,
+        )
         if is_complete:
             st.info("Draft complete. Your live scouting reports are no longer active.")
         else:
@@ -1052,7 +1059,7 @@ def live_dashboard(active_page: str):
                 for rank_no, candidate in enumerate(top_five, 1):
                     player_name_text = str(candidate.get("player") or "Player")
                     player_ai = ai_players.get(player_name_text, {})
-                    with st.container(border=True):
+                    with st.container(border=True, key=f"ai_candidate_{rank_no}"):
                         left, right = st.columns([4, 1])
                         with left:
                             st.markdown(f"**{rank_no}. {escape_html(player_name_text)}**")
@@ -1065,7 +1072,7 @@ def live_dashboard(active_page: str):
                         adp = candidate.get("blend_adp")
                         metrics = []
                         if sleeper_rank is not None:
-                            metrics.append(f"Sleeper search rank #{sleeper_rank}")
+                            metrics.append(f"Sleeper search rank #{sleeper_rank} (not fantasy rank)")
                         if adp is not None:
                             metrics.append(f"Blended ADP {float(adp):.1f}")
                         if metrics:

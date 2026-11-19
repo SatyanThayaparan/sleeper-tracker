@@ -48,6 +48,36 @@ if "cfg_league_id" not in st.session_state:
     st.session_state.cfg_league_id = ""
 if "cfg_my_user" not in st.session_state:
     st.session_state.cfg_my_user = ""
+# Keep durable copies separate from widget keys. Streamlit removes widget keys
+# when their controls are not rendered (e.g. after leaving Settings).
+for _field, _default in (
+    ("cfg_draft_link", DEFAULT_DRAFT_URL),
+    ("cfg_my_user", ""),
+    ("cfg_league_id", ""),
+):
+    _saved_key = f"saved_{_field}"
+    if _saved_key not in st.session_state:
+        st.session_state[_saved_key] = st.session_state.get(_field, _default)
+    st.session_state[_field] = st.session_state[_saved_key]
+if "saved_team_id" not in st.session_state:
+    st.session_state.saved_team_id = st.session_state.get("cfg_team_id", "")
+st.session_state.cfg_team_id = st.session_state.saved_team_id
+
+
+def draft_setting_changed(name):
+    value = st.session_state[f"_edit_{name}"]
+    st.session_state[f"saved_{name}"] = value
+    st.session_state[name] = value
+
+
+def draft_setting_input(label, name, **kwargs):
+    widget_key = f"_edit_{name}"
+    if widget_key not in st.session_state:
+        st.session_state[widget_key] = st.session_state[f"saved_{name}"]
+    return st.text_input(label, key=widget_key, on_change=draft_setting_changed,
+                         args=(name,), **kwargs)
+
+
 if "cfg_refresh" not in st.session_state:
     st.session_state.cfg_refresh = 15
 if "cfg_upside" not in st.session_state:
@@ -315,12 +345,12 @@ def render_settings_form(league_id_hint: str = ""):
     with st.container(border=True):
         st.markdown("### 1. Connect your Sleeper draft")
         st.caption("Paste your Sleeper draft link to load the league and picks. No password needed.")
-        st.text_input("Sleeper draft link or ID", key="cfg_draft_link",
+        draft_setting_input("Sleeper draft link or ID", "cfg_draft_link",
                       help="Copy your draft URL directly from Sleeper.")
-        st.text_input("Sleeper username or user ID (optional)", key="cfg_my_user",
+        draft_setting_input("Sleeper username or user ID (optional)", "cfg_my_user",
                       help="Helps Picky account for players already on your roster.")
         with st.expander("Additional connection options"):
-            st.text_input("League ID override (usually automatic)", key="cfg_league_id",
+            draft_setting_input("League ID override (usually automatic)", "cfg_league_id",
                           placeholder="Optional override")
             st.select_slider("Check for picks every", options=[10, 15, 30, 60],
                              key="cfg_refresh", format_func=lambda x: f"{x} sec")
@@ -415,8 +445,8 @@ with st.sidebar:
         connected=_preview_connected,
         league_name=st.session_state.get("sidebar_league_name", "Configured draft") if _preview_connected else "",
         meta=(
-            f'Team: {st.session_state.get("cfg_team_select")}'
-            if st.session_state.get("cfg_team_select") not in (None, "", "Not selected")
+            f'Team: {st.session_state.get("_edit_team_select")}'
+            if st.session_state.get("_edit_team_select") not in (None, "", "Not selected")
             else (f'Team: {st.session_state.get("cfg_my_user")}'
                   if st.session_state.get("cfg_my_user") else "Manage under Settings")
         ) if _preview_connected else "Open Settings to connect",
@@ -535,12 +565,26 @@ if page == "settings":
                 if u.get("user_id")
             }
             if options:
-                selected = st.selectbox(
+                saved_team = st.session_state.get("saved_team_id", "")
+                labels = ["Not selected"] + list(options)
+                preferred = next((label for label, user_id in options.items()
+                                  if user_id == saved_team), "Not selected")
+                if st.session_state.get("_edit_team_select") not in labels:
+                    st.session_state["_edit_team_select"] = preferred
+
+                def save_team_choice():
+                    chosen = options.get(st.session_state["_edit_team_select"], "")
+                    st.session_state.saved_team_id = chosen
+                    st.session_state.cfg_team_id = chosen
+
+                st.selectbox(
                     "Select your team / Sleeper account",
-                    ["Not selected"] + list(options),
-                    key="cfg_team_select",
+                    labels,
+                    key="_edit_team_select",
+                    on_change=save_team_choice,
+                    help="Your selection is kept while navigating between Picky pages.",
                 )
-                st.session_state.cfg_team_id = options.get(selected, "")
+                st.session_state.cfg_team_id = st.session_state.saved_team_id
         except Exception as e:
             st.caption(f"League user lookup unavailable: {e}")
     st.stop()

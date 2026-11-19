@@ -13,6 +13,7 @@ ICON_PATH = Path(__file__).resolve().parent / "assets" / "picky-icon.jpg"
 
 NAV_PAGES = [
     ("overview", "Overview"),
+    ("team", "My Team"),
     ("board", "Draft Board"),
     ("players", "Player Rankings"),
     ("reports", "Reports & News"),
@@ -465,6 +466,19 @@ div[data-testid="stMetric"] [data-testid="stMetricValue"] {
 .fx-activity-row strong { display:block; font-size:14px; }
 .fx-activity-row small { display:block; color:var(--color-text-secondary);
   font-size:12px; margin-top:4px; }
+
+/* Unified roster and pick shortlist styling. */
+.fx-slot-row { display:flex; justify-content:space-between; align-items:center;
+  gap:12px; background:var(--color-surface-raised); border:1px solid var(--color-border);
+  padding:12px 16px; margin-bottom:7px; border-radius:10px; }
+.fx-slot-name { display:inline-block; min-width:53px; border-radius:7px;
+  padding:5px 8px; background:var(--color-accent-subtle);
+  color:var(--color-accent); font-weight:700; font-size:12px; }
+.fx-slot-player { flex:1; color:var(--color-text-primary); font-weight:500; font-size:14px; }
+.fx-slot-empty { color:var(--color-accent); }
+.fx-pick-needs { display:flex; flex-wrap:wrap; gap:7px; margin:8px 0 16px; }
+.fx-pick-needs span { background:var(--color-accent-subtle); color:var(--color-accent);
+  border-radius:999px; padding:6px 11px; font-size:12px; font-weight:600; }
 
 /* Page chrome */
 .fx-page-header {

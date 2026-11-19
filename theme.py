@@ -530,6 +530,24 @@ div[data-testid="stMetric"] [data-testid="stMetricValue"] {
   .fx-scout-complete { animation: none; }
 }
 
+/* Overview: compact summary and non-expiring AI Scout completion state. */
+.fx-scout-finished {
+  margin: 10px 0 14px;
+  padding: 13px 16px;
+  border: 1px solid rgba(56, 185, 121, .5);
+  border-radius: 12px;
+  background: rgba(56, 185, 121, .12);
+  color: #A3F5CE;
+  font-weight: 650;
+  font-size: 14px;
+}
+.fx-overview-note {
+  border-radius: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 10px 14px;
+}
+
 /* Page chrome */
 .fx-page-header {
   display: flex;

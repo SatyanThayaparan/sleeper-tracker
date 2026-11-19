@@ -90,11 +90,11 @@ class ScoutTests(unittest.TestCase):
                             {"name": "Example Guard", "role_outlook": "Starter",
                              "recent_findings": "No recent evidence supplied.",
                              "availability_risk": "Unverified",
-                             "draft_fit": "Open PG", "evidence_date": "Unverified"},
+                             "draft_fit": "Open PG", "why_now": "ADP urgency is uncertain.", "evidence_date": "Unverified"},
                             {"name": "Example Wing", "role_outlook": "Bench",
                              "recent_findings": "No recent evidence supplied.",
                              "availability_risk": "Unverified",
-                             "draft_fit": "Open SF", "evidence_date": "Unverified"}
+                             "draft_fit": "Open SF", "why_now": "Limited data on waiting.", "evidence_date": "Unverified"}
                         ],
                         "alternatives": ["Example Wing"],
                         "cautions": ["Verify any injury updates"],
@@ -109,9 +109,51 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual(result["report"]["recommended_player"], "Example Guard")
         self.assertEqual(captured[0]["tools"][0]["type"], "web_search")
         self.assertEqual(captured[0]["store"], False)
+        self.assertIn("why_now", captured[0]["text"]["format"]["schema"]["properties"]["players"]["items"]["properties"])
+        self.assertIn("Yahoo", captured[0]["instructions"])
+        self.assertIn("ESPN", captured[0]["instructions"])
         self.assertEqual(captured[0]["text"]["format"]["type"], "json_schema")
         self.assertIn("research", captured[0]["instructions"].lower())
         self.assertEqual(len(captured), 1)
+
+    def test_scout_receives_next_turn_and_real_search_rank(self):
+        calls = []
+        class FakeResponses:
+            def create(self, **kwargs):
+                calls.append(kwargs)
+                return SimpleNamespace(
+                    output_text=json.dumps({
+                        "recommended_player": "Example Guard",
+                        "headline": "Conditional pick",
+                        "why_this_pick": "Fills need",
+                        "confidence": "medium",
+                        "players": [
+                            {"name": "Example Guard", "role_outlook": "Starter",
+                             "recent_findings": "No reports verified",
+                             "availability_risk": "Unknown",
+                             "draft_fit": "Fills PG", "why_now": "May not last",
+                             "evidence_date": "Unverified"},
+                            {"name": "Example Wing", "role_outlook": "Bench",
+                             "recent_findings": "No reports verified",
+                             "availability_risk": "Unknown",
+                             "draft_fit": "Adds depth", "why_now": "Can wait",
+                             "evidence_date": "Unverified"},
+                        ],
+                        "alternatives": [],
+                        "cautions": [],
+                        "research_summary": "Context check",
+                    }),
+                    output=[],
+                )
+        rows = [dict(x) for x in self.players]
+        rows[0]["sleeper_search_rank"] = 19
+        run_scout(rows, open_slots=["PG"], context={
+            "current_pick": 30, "upcoming_pick": 30,
+            "following_pick": 54, "league_teams": 12,
+        }, client=SimpleNamespace(responses=FakeResponses()))
+        prompt = calls[0]["input"]
+        self.assertIn('"following_pick": 54', prompt)
+        self.assertIn('"sleeper_search_rank": 19', prompt)
 
     def test_reject_more_than_five(self):
         with self.assertRaises(ValueError):

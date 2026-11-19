@@ -859,6 +859,33 @@ section[data-testid="stSidebar"] [class*="st-key-nav_"] button:focus-visible {
   }
 }
 
+/* AI Scout high-contrast research identity and candidate explanation cards. */
+.fx-scout-heading {
+  display:flex; align-items:center; gap:13px;
+  margin:24px 0 12px; padding:15px 19px; border-radius:14px;
+  border:1px solid rgba(63,192,125,.63);
+  background:linear-gradient(112deg,rgba(23,96,71,.52),rgba(20,41,40,.9));
+  box-shadow:0 5px 26px rgba(12,42,32,.2);
+}
+.fx-scout-mark { display:grid; place-items:center; width:38px; height:38px;
+  border-radius:10px; background:#37C985; color:#061A12; font-size:25px; font-weight:900; }
+.fx-scout-heading > div { display:flex; flex-direction:column; min-width:0; gap:3px; }
+.fx-scout-heading strong { color:#F1F5F9; font-size:18px; line-height:1.2; }
+.fx-scout-heading small { font-size:11px; color:#A5EBC7; }
+[class*="st-key-ai_candidate_"] {
+  border:1px solid rgba(70,173,120,.34); border-radius:12px;
+  background:rgba(24,44,39,.22);
+}
+[class*="st-key-ai_candidate_"] [data-testid="stVerticalBlockBorderWrapper"] {
+  border-color:rgba(70,173,120,.3) !important;
+}
+[class*="st-key-ai_candidate_"]:hover {
+  background:rgba(39,93,66,.25);
+}
+[class*="st-key-ai_candidate_"] [data-testid="stMarkdownContainer"] strong {
+  color:#E6F8ED;
+}
+
 /* Fluid page geometry: works on smaller monitors, ultrawides and phones. */
 :root { --sidebar-w: clamp(252px, 19vw, 326px); }
 .block-container {

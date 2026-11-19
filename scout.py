@@ -202,6 +202,31 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
     }
 
 
+def turn_research_key(draft_id, user_id, pick_number):
+    """Stable per-turn key: shortlist reordering must not cause paid re-searches."""
+    payload = json.dumps(
+        [str(draft_id), str(user_id), int(pick_number)],
+        separators=(",", ":"),
+    )
+    return "turn-" + hashlib.sha256(payload.encode()).hexdigest()
+
+
+def auto_research_due(session, key, *, on_clock, unlocked, configured,
+                      candidate_count, draft_active):
+    """Research at most once automatically per turn, only with explicit unlock."""
+    return bool(
+        on_clock and unlocked and configured and draft_active
+        and candidate_count > 0 and key
+        and key not in session.get("ai_scout_auto_attempted", set())
+        and research_allowed(session, key)
+    )
+
+
+def record_auto_attempt(session, key):
+    """Record *before* the paid call so reruns cannot loop on failures."""
+    session.setdefault("ai_scout_auto_attempted", set()).add(key)
+
+
 def use_scout(session, key, candidates, *, open_slots, research_fn=run_scout):
     """One explicit paid request; record unsuccessful attempts to prevent loops."""
     if not research_allowed(session, key):

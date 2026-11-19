@@ -11,7 +11,7 @@ import feedparser
 from adp import ADP_URL, fetch_adp_rows, match_adp
 from recommend import build_recommendations
 from roster import assign_lineup, next_user_picks, top_five_for_pick
-from ai import openai_configured
+from ai import openai_configured, get_scout_access_code, scout_access_granted
 from scout import (cache_entry, research_key, research_allowed, use_scout,
                    MAX_PER_SESSION, CACHE_TTL_SECONDS)
 from config import default_draft_url
@@ -813,7 +813,22 @@ def live_dashboard(active_page: str):
                     )
                 elif not my_user_id:
                     st.info("Select your Sleeper team under Settings for roster-specific AI analysis.")
+                elif not get_scout_access_code():
+                    st.info(
+                        "To protect your paid API key on Streamlit Cloud, set "
+                        "PICKY_AI_SCOUT_ACCESS_CODE in app Secrets. AI Scout is "
+                        "disabled until an access code is configured."
+                    )
                 else:
+                    access_value = st.text_input(
+                        "AI Scout access code", type="password",
+                        key="scout_access_input",
+                        help="The private access code set in Streamlit Cloud Secrets.",
+                    )
+                    if not scout_access_granted(access_value):
+                        st.caption("Enter the private access code to unlock paid research.")
+                    else:
+                        render_ai_scout = True
                     decision = research_key(
                         draft_id,
                         upcoming[0] if upcoming else None,
@@ -821,7 +836,9 @@ def live_dashboard(active_page: str):
                         top_five,
                     )
                     cached = cache_entry(st.session_state, decision)
-                    if cached:
+                    if not scout_access_granted(access_value):
+                        st.caption("No AI calls will be made until access is unlocked.")
+                    elif cached:
                         with st.container(border=True):
                             st.caption(
                                 "Research generated for this shortlist · "

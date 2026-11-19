@@ -859,6 +859,113 @@ section[data-testid="stSidebar"] [class*="st-key-nav_"] button:focus-visible {
   }
 }
 
+/* AI Scout high-contrast research identity and candidate explanation cards. */
+.fx-scout-heading {
+  display:flex; align-items:center; gap:13px;
+  margin:24px 0 12px; padding:15px 19px; border-radius:14px;
+  border:1px solid rgba(63,192,125,.63);
+  background:linear-gradient(112deg,rgba(23,96,71,.52),rgba(20,41,40,.9));
+  box-shadow:0 5px 26px rgba(12,42,32,.2);
+}
+.fx-scout-mark { display:grid; place-items:center; width:38px; height:38px;
+  border-radius:10px; background:#37C985; color:#061A12; font-size:25px; font-weight:900; }
+.fx-scout-heading > div { display:flex; flex-direction:column; min-width:0; gap:3px; }
+.fx-scout-heading strong { color:#F1F5F9; font-size:18px; line-height:1.2; }
+.fx-scout-heading small { font-size:11px; color:#A5EBC7; }
+[class*="st-key-ai_candidate_"] {
+  border:1px solid rgba(70,173,120,.34); border-radius:12px;
+  background:rgba(24,44,39,.22);
+}
+[class*="st-key-ai_candidate_"] [data-testid="stVerticalBlockBorderWrapper"] {
+  border-color:rgba(70,173,120,.3) !important;
+}
+[class*="st-key-ai_candidate_"]:hover {
+  background:rgba(39,93,66,.25);
+}
+[class*="st-key-ai_candidate_"] [data-testid="stMarkdownContainer"] strong {
+  color:#E6F8ED;
+}
+
+/* Fluid page geometry: works on smaller monitors, ultrawides and phones. */
+:root { --sidebar-w: clamp(252px, 19vw, 326px); }
+.block-container {
+  width: min(100%, 1640px) !important;
+  max-width: 1640px !important;
+  padding-left: clamp(12px, 2.4vw, 36px) !important;
+  padding-right: clamp(12px, 2.4vw, 36px) !important;
+  margin-inline: auto !important;
+  overflow-wrap: anywhere;
+}
+.fx-roster-layout {
+  display:grid;
+  grid-template-columns: minmax(0,2fr) minmax(244px,1fr);
+  align-items:start;
+  gap: clamp(12px, 1.3vw, 20px);
+  width:100%;
+  margin: 8px 0 12px;
+}
+.fx-roster-layout > section { min-width:0; }
+.fx-roster-heading {
+  color:#60DBA4; text-transform:uppercase; letter-spacing:.065em;
+  font-size:11px; font-weight:750; margin-bottom:10px;
+}
+.fx-roster-starters {
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.fx-roster-extras { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; }
+.fx-roster-player {
+  min-width:0; display:flex; gap:10px; align-items:center;
+  padding:10px 11px; min-height:70px;
+  border-radius:11px; border:1px solid rgba(66,91,110,.55);
+  background:#1C2533; color:#F1F5F9;
+}
+.fx-roster-player:hover { border-color:rgba(72,185,131,.48); }
+.fx-roster-slot {
+  display:grid; place-items:center; flex:0 0 auto;
+  min-width:42px; min-height:40px; border-radius:8px;
+  background:#263F36; color:#70E0A8; font-weight:700; font-size:12px;
+}
+.fx-roster-player-info { min-width:0; flex:1; display:flex; flex-direction:column; gap:2px; }
+.fx-roster-player-info strong { font-size:clamp(12px, .87vw, 14px); line-height:1.35; font-weight:650; }
+.fx-roster-player-info small {
+  color:#A3B2C5; font-size:11px; line-height:1.4;
+  overflow-wrap:anywhere;
+}
+.fx-roster-player-info .fx-roster-type { color:#60D39C; font-size:10px; letter-spacing:.04em; }
+.fx-roster-pick { font-size:11px; color:#A8B5C6; white-space:nowrap; align-self:center; }
+.fx-roster-empty { opacity:.75; background:#17202D; }
+.fx-roster-empty .fx-roster-slot { background:#25313E; color:#B6C3CF; }
+.fx-roster-note {
+  background:#1C2533; padding:11px; font-size:12px; color:#A6B4C5;
+  border-radius:10px; border:1px dashed #394558;
+}
+.fx-overview-scout [data-testid="stVerticalBlockBorderWrapper"] { min-width:0; }
+.fx-scout-reason { color:#D0EADD; font-size:13px; line-height:1.48; }
+.fx-scout-reason-label { color:#56D49A; font-weight:800; font-size:11px; text-transform:uppercase; letter-spacing:.07em; }
+@media (max-width: 1250px) {
+  .fx-roster-layout { grid-template-columns: minmax(0,1fr); }
+  .fx-roster-extras { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 760px) {
+  :root { --sidebar-w: min(300px, 86vw); }
+  .block-container { padding-top:14px !important; padding-bottom:48px !important; }
+  .fx-roster-layout { gap:12px; }
+  .fx-roster-starters, .fx-roster-extras { grid-template-columns:1fr; }
+  .fx-roster-player { min-height:60px; padding:8px 10px; gap:9px; }
+  .fx-roster-slot { min-width:38px; min-height:38px; }
+  .fx-roster-player-info strong { font-size:13px; }
+  section[data-testid="stSidebar"] {
+    min-width: min(300px,86vw) !important;
+    max-width: min(300px,86vw) !important;
+  }
+  [data-testid="stHorizontalBlock"] { flex-wrap:wrap !important; }
+  [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+    flex:1 1 100% !important; width:100% !important; min-width:0 !important;
+  }
+  .stDataFrame, [data-testid="stDataFrame"] { width:100% !important; max-width:100%; overflow-x:auto; }
+}
+
 hr { border-color: var(--color-border) !important; }
 
 @media (max-width: 900px) {

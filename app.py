@@ -338,35 +338,55 @@ def render_top_recommendations(options, origin):
                     unsafe_allow_html=True)
 
 
-def render_drafted_roster_row(item, players, picks):
-    """Consistent, visible player row on My Team and Overview."""
+def roster_player_card(item, players, picks):
+    """HTML is escaped; one reusable compact card for starter/utility/bench."""
     pid = item.get("player_id")
-    name = player_name(pid, players, picks) if pid else "Open position"
     meta = players.get(str(pid), {}) if pid else {}
-    eligible = ", ".join(player_positions(meta)) if pid else "Needs a player"
-    nba_team = str(meta.get("team") or "—") if pid else "—"
+    name = player_name(pid, players, picks) if pid else "Open slot"
+    eligible = ", ".join(player_positions(meta)) if pid else "Position available"
+    nba_team = str(meta.get("team") or "Free agent") if pid else "—"
     slot = str(item.get("slot") or "BN")
-    group = item.get("group") or "starter"
-    designation = ("BENCH" if group == "bench" else
-                   "UTILITY" if group == "utility" or
-                   slot in ("UTIL", "UTILITY", "FLEX") else "STARTER")
-    pick = item.get("pick_number")
-    pick_label = f"Pick #{pick}" if pick is not None else "Open slot"
-    with st.container(border=True):
-        info, label = st.columns([4, 1], vertical_alignment="center")
-        with info:
-            st.markdown(
-                f"**{escape_html(str(name))}**"
-                + (f" · **{escape_html(slot)}**" if pid else "")
-            )
-            st.caption(
-                f"Slot {slot} · Eligible {eligible} · {nba_team} · {pick_label}"
-            )
-        with label:
-            if pid:
-                st.caption(designation)
-            else:
-                st.caption("OPEN")
+    group = str(item.get("group") or "starter")
+    designation = "Bench" if group == "bench" else (
+        "Utility" if group == "utility" else "Starter"
+    )
+    no = item.get("pick_number")
+    pick = f"#{no}" if no is not None else "Open"
+    css_class = " fx-roster-empty" if not pid else ""
+    return (
+        f'<div class="fx-roster-player{css_class}">'
+        f'<span class="fx-roster-slot">{escape_html(slot)}</span>'
+        '<div class="fx-roster-player-info">'
+        f'<strong>{escape_html(str(name))}</strong>'
+        f'<small>{escape_html(str(eligible))} · '
+        f'{escape_html(nba_team)}</small>'
+        f'<small class="fx-roster-type">{escape_html(designation)}</small>'
+        '</div>'
+        f'<span class="fx-roster-pick">{escape_html(pick)}</span>'
+        '</div>'
+    )
+
+
+def render_roster_grid(roster_state, players, picks):
+    """Responsive 2-column top-eight plus 1-column utility/bench rail."""
+    primary = "".join(roster_player_card(item, players, picks)
+                      for item in roster_state["primary"])
+    utility = "".join(roster_player_card(item, players, picks)
+                      for item in roster_state["utility"])
+    bench = "".join(roster_player_card(item, players, picks)
+                    for item in roster_state["bench"])
+    st.markdown(
+        '<div class="fx-roster-layout">'
+        '<section class="fx-roster-main">'
+        '<div class="fx-roster-heading">Starting eight</div>'
+        f'<div class="fx-roster-starters">{primary}</div>'
+        '</section><section class="fx-roster-rail">'
+        '<div class="fx-roster-heading">Utility & bench</div>'
+        f'<div class="fx-roster-extras">{utility}{bench or "<div class=\'fx-roster-note\'>No bench picks yet</div>"}</div>'
+        '</section></div>',
+        unsafe_allow_html=True,
+    )
+
 
 
 def render_scout_report(entry, candidates):
@@ -808,32 +828,10 @@ def live_dashboard(active_page: str):
         t3.metric("Open starter slots", len(roster_state["open_slots"]))
         if upcoming and draft_status not in ("complete", "completed"):
             st.caption(f"Next estimated pick: #{upcoming[0]} ({upcoming[0] - next_pick} picks away)")
-        st.markdown("### My roster — drafted order")
-        st.caption(
-            "Earlier picks are assigned first to eligible top-eight starter slots, "
-            "then utility slots. All drafted players, including bench players, remain visible."
-        )
-        st.markdown("#### First eight lineup positions")
-        for item in roster_state["primary"]:
-            render_drafted_roster_row(item, players, picks)
-        st.markdown("#### Utility positions")
-        if roster_state["utility"]:
-            for item in roster_state["utility"]:
-                render_drafted_roster_row(item, players, picks)
-        else:
-            st.caption("No additional utility slots are configured for this draft.")
-        st.markdown("#### Bench players")
-        if roster_state["bench"]:
-            for item in roster_state["bench"]:
-                render_drafted_roster_row(item, players, picks)
-        else:
-            st.caption("No bench players drafted yet.")
-        if not roster_ids:
-            st.caption("Your selected team has not drafted any players yet.")
-        st.caption(
-            "This is a draft-order roster projection and does not change "
-            "your official Sleeper lineup."
-        )
+        st.markdown("### My roster")
+        st.caption("Earlier picks fill eligible slots first; the right column holds utility and bench selections.")
+        render_roster_grid(roster_state, players, picks)
+        st.caption("Roster placement is an illustration of draft order, not your submitted Sleeper lineup.")
         st.markdown("### Your remaining needs")
         if roster_state["open_slots"]:
             st.markdown(
@@ -884,46 +882,25 @@ def live_dashboard(active_page: str):
             )
 
         # 2. Show filled slots and needs before any recommendations.
-        st.markdown("### My team & positional needs")
+        st.markdown("### My Team")
         if my_user_id and roster_state:
-            filled_col, needed_col = st.columns(2, gap="medium")
-            with filled_col:
-                with st.container(border=True):
-                    st.markdown("**Your drafted roster**")
-                    st.caption(
-                        f"{roster_state['filled']} of {roster_state['total']} "
-                        "starter and utility positions filled in draft order"
-                    )
-                    for assignment in roster_state["lineup"]:
-                        if assignment["player_id"]:
-                            render_drafted_roster_row(assignment, players, picks)
-                    for assignment in roster_state["bench"]:
-                        render_drafted_roster_row(assignment, players, picks)
-                    if not roster_ids:
-                        st.caption("You haven't drafted any players yet.")
-            with needed_col:
-                with st.container(border=True):
-                    st.markdown("**Positions to fill**")
-                    remaining = roster_state["open_slots"]
-                    if remaining:
-                        st.markdown(
-                            '<div class="fx-pick-needs">'
-                            + "".join(f'<span>{escape_html(str(position))}</span>'
-                                      for position in remaining)
-                            + "</div>",
-                            unsafe_allow_html=True,
-                        )
-                        st.caption("These are projected empty starting positions. "
-                                   "Bench depth may still be useful.")
-                    else:
-                        st.success("Your drafted players can fill all current starting slots.")
-                    st.caption(f"Total drafted: {len(roster_ids)}")
             st.caption(
-                "Lineup assignments follow draft order and eligible slots; "
-                "they are not submitted Sleeper lineup settings."
+                f"{roster_state['filled']} / {roster_state['total']} starter and utility slots filled "
+                f"· {len(roster_ids)} drafted"
             )
+            render_roster_grid(roster_state, players, picks)
+            if roster_state["open_slots"]:
+                st.markdown(
+                    '<div class="fx-pick-needs">'
+                    + "".join(f'<span>{escape_html(str(position))}</span>'
+                              for position in roster_state["open_slots"])
+                    + "</div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.caption("All starting positions can currently be filled.")
         else:
-            st.info("Choose your Sleeper account in Settings to see your team and positional needs.")
+            st.info("Select your Sleeper account in Settings to show your roster.")
 
         # 3. AI Scout: unlocked once in this session, auto-runs ONCE when
         # Sleeper confirms this is your turn. Does not call OpenAI on other refreshes.

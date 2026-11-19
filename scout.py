@@ -54,7 +54,12 @@ def cache_entry(session, key, now=None):
     """Only display findings that still match this pick and are reasonably fresh."""
     now = time.time() if now is None else now
     entry = session.get("ai_scout_cache", {}).get(key)
-    if entry and 0 <= now - entry["timestamp"] < CACHE_TTL_SECONDS:
+    if entry and (
+        key.startswith("turn-") or
+        0 <= now - entry["timestamp"] < CACHE_TTL_SECONDS
+    ):
+        # On-clock reports stay available for the rest of that draft turn.
+        # The next turn gets a distinct key, so old reports leave the active UI.
         return entry
     return None
 
@@ -194,6 +199,11 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
         raise RuntimeError("AI Scout returned an invalid player comparison.")
     report["players"] = [row for row in report["players"]
                          if isinstance(row, dict) and row.get("name") in allowed]
+    covered = {row.get("name") for row in report["players"]}
+    if covered != allowed:
+        raise RuntimeError(
+            "AI Scout did not provide individual findings for every shortlisted player."
+        )
     return {
         "report": report,
         "sources": safe_source_urls(response),

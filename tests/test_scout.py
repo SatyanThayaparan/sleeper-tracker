@@ -8,6 +8,7 @@ from unittest.mock import patch
 from scout import (
     CACHE_TTL_SECONDS, MAX_PER_PICK, cache_entry, research_allowed,
     research_key, run_scout, safe_source_urls, use_scout,
+    turn_research_key, auto_research_due, record_auto_attempt,
 )
 
 
@@ -133,6 +134,46 @@ class ScoutTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "unreadable structured"):
             run_scout(self.players, open_slots=["PG"],
                       client=SimpleNamespace(responses=BadJSON()))
+
+
+    def test_auto_scout_only_when_on_clock_and_unlocked(self):
+        session = {}
+        key = turn_research_key("draft1", "user2", 19)
+        common = dict(unlocked=True, configured=True,
+                      candidate_count=5, draft_active=True)
+        self.assertFalse(auto_research_due(session, key, on_clock=False, **common))
+        self.assertFalse(auto_research_due(session, key, on_clock=True,
+                          **dict(common, unlocked=False)))
+        self.assertFalse(auto_research_due(session, key, on_clock=True,
+                          **dict(common, draft_active=False)))
+        self.assertFalse(auto_research_due(session, key, on_clock=True,
+                          **dict(common, candidate_count=0)))
+        self.assertTrue(auto_research_due(session, key, on_clock=True, **common))
+        record_auto_attempt(session, key)
+        self.assertFalse(auto_research_due(session, key, on_clock=True, **common))
+
+    def test_turn_key_is_stable_within_pick_and_new_each_turn(self):
+        self.assertEqual(turn_research_key("draft1", "me", 27),
+                         turn_research_key("draft1", "me", 27))
+        self.assertNotEqual(turn_research_key("draft1", "me", 27),
+                            turn_research_key("draft1", "me", 39))
+        self.assertNotEqual(turn_research_key("draft1", "me", 27),
+                            turn_research_key("draft1", "other", 27))
+
+    def test_failed_auto_scout_does_not_loop_or_charge_again(self):
+        session = {}
+        key = turn_research_key("draft", "me", 37)
+        record_auto_attempt(session, key)
+        with self.assertRaises(RuntimeError):
+            use_scout(session, key, self.players, open_slots=[],
+                      research_fn=lambda *_args, **_kwargs: (
+                          (_ for _ in ()).throw(RuntimeError("simulated API failure"))
+                      ))
+        self.assertFalse(auto_research_due(
+            session, key, on_clock=True, unlocked=True, configured=True,
+            candidate_count=5, draft_active=True,
+        ))
+        self.assertEqual(session["ai_scout_call_counts"][key], 1)
 
 
 if __name__ == "__main__":

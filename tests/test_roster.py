@@ -1,7 +1,7 @@
 """Unit tests for pick planning; run with python -m unittest discover -s tests."""
 import unittest
 
-from roster import assign_lineup, next_user_picks, top_five_for_pick
+from roster import assign_lineup, chronological_roster, next_user_picks, top_five_for_pick
 
 
 class RosterTests(unittest.TestCase):
@@ -23,6 +23,61 @@ class RosterTests(unittest.TestCase):
                                ["PG", "BN"])
         self.assertEqual(result["open_slots"], ["PG"])
         self.assertEqual(result["bench_ids"], ["one"])
+
+    def test_chronological_first_eight_then_utility_and_bench(self):
+        slots = ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL",
+                 "UTIL", "UTIL", "BN", "BN"]
+        ids = [str(i) for i in range(1, 13)]
+        players = {
+            pid: {"fantasy_positions": ["PG", "SG", "SF", "PF", "C"]}
+            for pid in ids
+        }
+        result = chronological_roster(
+            ids, players, slots, pick_numbers=list(range(10, 22))
+        )
+        self.assertEqual(
+            [row["player_id"] for row in result["primary"]],
+            ids[:8],
+        )
+        self.assertEqual(
+            [row["player_id"] for row in result["utility"]],
+            ids[8:10],
+        )
+        self.assertEqual(
+            [row["player_id"] for row in result["bench"]],
+            ids[10:],
+        )
+        self.assertEqual(result["bench"][0]["group"], "bench")
+        self.assertEqual(result["utility"][0]["group"], "utility")
+        self.assertEqual(result["lineup"][0]["pick_number"], 10)
+
+    def test_chronological_does_not_reorder_early_picks(self):
+        players = {
+            "center": {"fantasy_positions": ["C"]},
+            "point": {"fantasy_positions": ["PG"]},
+            "guard": {"fantasy_positions": ["PG", "SG"]},
+        }
+        result = chronological_roster(
+            ["center", "point", "guard"], players,
+            ["PG", "SG", "C", "UTIL", "BN"],
+        )
+        self.assertEqual(result["primary"][2]["player_id"], "center")
+        self.assertEqual(result["primary"][0]["player_id"], "point")
+        self.assertEqual(result["primary"][1]["player_id"], "guard")
+        self.assertEqual(result["bench"], [])
+
+    def test_ineligible_early_pick_is_visible_on_bench(self):
+        players = {
+            "center": {"fantasy_positions": ["C"]},
+            "pg": {"fantasy_positions": ["PG"]},
+        }
+        result = chronological_roster(
+            ["center", "pg"], players,
+            ["PG", "BN"], pick_numbers=[3, 7],
+        )
+        self.assertEqual(result["primary"][0]["player_id"], "pg")
+        self.assertEqual(result["bench"][0]["player_id"], "center")
+        self.assertEqual(result["bench"][0]["pick_number"], 3)
 
     def test_next_snake_picks(self):
         draft = {"type": "snake", "draft_order": {"me": 2}}

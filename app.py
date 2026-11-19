@@ -407,9 +407,10 @@ def render_scout_report(entry):
                 "Review original articles and publication dates independently."
             )
             for source in sources:
-                st.markdown(
-                    f"- [{escape_html(str(source.get('title') or 'Read article'))}]"
-                    f"({source.get('url')})"
+                st.link_button(
+                    str(source.get("title") or "Read article"),
+                    source.get("url"),
+                    use_container_width=False,
                 )
         else:
             st.warning(

@@ -910,6 +910,12 @@ def live_dashboard(active_page: str):
             st.info("Draft complete. Your live scouting reports are no longer active.")
         else:
             top_five = top_five_for_pick(board.get("rows") or [])
+            # Pass factual search rank into AI research *before* its request.
+            for candidate in top_five:
+                candidate["sleeper_search_rank"] = (
+                    players.get(str(candidate.get("player_id")), {}).get("search_rank")
+                )
+            following_pick = upcoming[1] if len(upcoming) > 1 else None
             if not top_five:
                 st.info("Waiting for available player rankings before scouting.")
             elif not my_user_id:
@@ -967,6 +973,12 @@ def live_dashboard(active_page: str):
                                 use_scout(
                                     st.session_state, turn_key, top_five,
                                     open_slots=roster_state["open_slots"],
+                                    context={
+                                        "upcoming_pick": upcoming[0] if upcoming else None,
+                                        "following_pick": following_pick,
+                                        "current_pick": next_pick,
+                                        "league_teams": teams,
+                                    },
                                 )
                             except Exception as exc:
                                 st.session_state.setdefault("ai_scout_turn_errors", {})[turn_key] = (
@@ -1002,6 +1014,12 @@ def live_dashboard(active_page: str):
                                         use_scout(
                                             st.session_state, turn_key, top_five,
                                             open_slots=roster_state["open_slots"],
+                                            context={
+                                                "upcoming_pick": upcoming[0] if upcoming else None,
+                                                "following_pick": following_pick,
+                                                "current_pick": next_pick,
+                                                "league_teams": teams,
+                                            },
                                         )
                                     except Exception as exc:
                                         st.session_state["ai_scout_turn_errors"][turn_key] = str(exc)[:220]
@@ -1017,13 +1035,6 @@ def live_dashboard(active_page: str):
                     "A live response may use API credits. Research is not a guaranteed prediction."
                 )
 
-            # Add only independently supplied player metadata; Sleeper's
-            # search_rank is a search priority signal, not a fantasy points rank.
-            for candidate in top_five:
-                meta = players.get(str(candidate.get("player_id")), {})
-                candidate["sleeper_search_rank"] = meta.get("search_rank")
-            # The following turn estimate is contextual guidance, never a probability.
-            following_pick = upcoming[1] if len(upcoming) > 1 else None
             # Clear fallback: always give useful explanations when AI is unavailable.
             st.markdown("#### Top 5 available options")
             if top_five:

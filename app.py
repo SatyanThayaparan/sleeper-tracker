@@ -81,7 +81,7 @@ def draft_setting_input(label, name, **kwargs):
 
 
 if "cfg_refresh" not in st.session_state:
-    st.session_state.cfg_refresh = 15
+    st.session_state.cfg_refresh = 10
 if "cfg_upside" not in st.session_state:
     st.session_state.cfg_upside = 35
 if "cfg_safety" not in st.session_state:
@@ -109,7 +109,7 @@ def api_get(path):
     return r.json()
 
 
-@st.cache_data(ttl=10, show_spinner=False)
+@st.cache_data(ttl=4, show_spinner=False)
 def live_draft_snapshot(draft_id):
     """Refresh live draft endpoints without clearing unrelated cached data."""
     def fetch(path):
@@ -448,8 +448,9 @@ def render_settings_form(league_id_hint: str = ""):
         with st.expander("Additional connection options"):
             draft_setting_input("League ID override (usually automatic)", "cfg_league_id",
                           placeholder="Optional override")
-            st.select_slider("Check for picks every", options=[10, 15, 30, 60],
-                             key="cfg_refresh", format_func=lambda x: f"{x} sec")
+            st.select_slider("Check for picks every", options=[5, 10, 15, 30, 60],
+                             key="cfg_refresh", format_func=lambda x: f"{x} sec",
+                             help="5 seconds is the fastest option. API response times can delay updates.")
     with st.container(border=True):
         st.markdown("### 2. Choose your rankings source")
         st.caption("Picky uses an ADP blend automatically. Optionally upload your own projections.")
@@ -1016,6 +1017,13 @@ def live_dashboard(active_page: str):
                     "A live response may use API credits. Research is not a guaranteed prediction."
                 )
 
+            # Add only independently supplied player metadata; Sleeper's
+            # search_rank is a search priority signal, not a fantasy points rank.
+            for candidate in top_five:
+                meta = players.get(str(candidate.get("player_id")), {})
+                candidate["sleeper_search_rank"] = meta.get("search_rank")
+            # The following turn estimate is contextual guidance, never a probability.
+            following_pick = upcoming[1] if len(upcoming) > 1 else None
             # Clear fallback: always give useful explanations when AI is unavailable.
             st.markdown("#### Top 5 available options")
             if top_five:
@@ -1042,16 +1050,54 @@ def live_dashboard(active_page: str):
                         with right:
                             if player_name_text == (ai_report or {}).get("recommended_player"):
                                 st.markdown(":green[**AI PICK**]")
+                        sleeper_rank = candidate.get("sleeper_search_rank")
+                        adp = candidate.get("blend_adp")
+                        metrics = []
+                        if sleeper_rank is not None:
+                            metrics.append(f"Sleeper search rank #{sleeper_rank}")
+                        if adp is not None:
+                            metrics.append(f"Blended ADP {float(adp):.1f}")
+                        if metrics:
+                            st.caption(" · ".join(metrics))
+                        st.markdown(
+                            '<span class="fx-scout-reason-label">Why consider this player?</span>',
+                            unsafe_allow_html=True,
+                        )
                         st.write(
                             player_ai.get("draft_fit")
                             or candidate.get("roster")
-                            or "Available player with a strong Picky ranking."
+                            or "A leading available option in Picky's draft rankings."
                         )
                         if player_ai:
-                            st.caption("AI insight: " + str(
-                                player_ai.get("recent_findings") or
-                                player_ai.get("role_outlook") or "Evidence unavailable."
-                            ))
+                            st.write(
+                                player_ai.get("why_now")
+                                or player_ai.get("recent_findings")
+                                or "The current report has limited verifiable evidence."
+                            )
+                            with st.expander("ESPN / Yahoo / NBA evidence and uncertainty"):
+                                st.write("**Reports:** " + str(
+                                    player_ai.get("recent_findings") or "No source-verified updates."
+                                ))
+                                st.write("**Role:** " + str(
+                                    player_ai.get("role_outlook") or "Unverified"
+                                ))
+                                st.write("**Injury:** " + str(
+                                    player_ai.get("availability_risk") or "Unverified"
+                                ))
+                                st.caption("Find article URLs in AI Scout's research sources above.")
+                        elif following_pick is not None and adp is not None:
+                            if float(adp) <= following_pick:
+                                st.caption(
+                                    f"ADP context: often selected before your next "
+                                    f"estimated turn (pick #{following_pick}). "
+                                    "Availability is not guaranteed."
+                                )
+                            else:
+                                st.caption(
+                                    f"ADP context: selection typically occurs later than "
+                                    f"your next turn (pick #{following_pick}), but other "
+                                    "managers may draft this player sooner."
+                                )
                 st.caption("These five are selected by Picky's ranking engine. "
                            "AI insights appear after current-pick research completes.")
 

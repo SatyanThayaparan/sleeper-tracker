@@ -339,72 +339,45 @@ def render_top_recommendations(options, origin):
 
 
 def render_scout_report(entry, candidates):
-    """Show a concise, comparable insight for each current Top 5 option."""
+    """Compact completion and recommendation; individual insight cards below."""
     report = entry.get("report")
     if not isinstance(report, dict):
         with st.expander("Previous AI report"):
             st.markdown(entry.get("text") or "No report available.")
         return
-    winner = str(report.get("recommended_player") or "")
     st.markdown(
-        '<div class="fx-scout-finished">✓ AI research complete — '
-        'your five-player analysis is ready.</div>',
+        '<div class="fx-scout-finished" role="status">'
+        '✓ AI research complete — player insights are ready.'
+        '</div>',
         unsafe_allow_html=True,
     )
     with st.container(border=True):
-        st.caption("AI SCOUT · RECOMMENDED PICK")
-        st.markdown(f"### {escape_html(winner)}")
+        st.caption("AI SCOUT · TOP RECOMMENDATION")
+        st.markdown(f"### {escape_html(str(report.get('recommended_player') or 'Unavailable'))}")
         st.write(report.get("why_this_pick") or report.get("headline") or "No explanation available.")
-        st.caption("Research confidence: " + str(report.get("confidence") or "Unverified").title()
-                   + " · " + datetime.fromtimestamp(entry["timestamp"], timezone.utc)
-                   .strftime("%b %d, %H:%M UTC"))
-    st.markdown("#### Why each of the five is worth considering")
-    summaries = {str(player.get("name")): player
-                 for player in report.get("players") or []
-                 if isinstance(player, dict)}
-    for position, candidate in enumerate(candidates[:5], 1):
-        name = str(candidate.get("player") or "Player")
-        record = summaries.get(name, {})
-        with st.container(border=True):
-            left, right = st.columns([4, 1])
-            with left:
-                st.markdown(f"**{position}. {escape_html(name)}**")
-            with right:
-                if name == winner:
-                    st.markdown(":green[**AI PICK**]")
-            insight = (record.get("draft_fit") or candidate.get("roster")
-                       or "Ranked among your top available options.")
-            st.write(insight)
-            st.caption("NBA scouting: " + str(record.get("recent_findings")
-                                             or "Recent coverage not verified."))
-            with st.expander("Role, injury context & evidence"):
-                st.write("**Opportunity:** " + str(record.get("role_outlook")
-                                                   or "Not verified"))
-                st.write("**Availability:** " + str(record.get("availability_risk")
-                                                     or candidate.get("injury") or "Unknown"))
-                st.caption("Evidence date: " + str(record.get("evidence_date") or "Unverified"))
-    with st.expander("Alternatives, risks & research sources"):
+        st.caption(
+            "Research confidence: " + str(report.get("confidence") or "Unverified").title()
+            + " · " + datetime.fromtimestamp(entry["timestamp"], timezone.utc)
+            .strftime("%b %d, %H:%M UTC")
+        )
+    with st.expander("View detailed evidence, risks and research sources"):
         if report.get("alternatives"):
             st.markdown("**Alternatives**")
             for point in report["alternatives"]:
                 st.write("• " + str(point))
         if report.get("cautions"):
-            st.markdown("**Risks and evidence gaps**")
+            st.markdown("**Risks & evidence gaps**")
             for point in report["cautions"]:
                 st.write("• " + str(point))
         st.caption(report.get("research_summary") or "")
-        sources = entry.get("sources") or []
         st.markdown("**Source articles**")
-        if sources:
-            for source in sources:
+        if entry.get("sources"):
+            for source in entry["sources"]:
                 st.link_button(str(source.get("title") or "Read report"),
                                source["url"], use_container_width=False)
         else:
-            st.warning("No verifiable source links were returned; verify claims independently.")
-    st.caption(
-        "AI findings are advisory. Check Sleeper for current player availability. "
-        "The next turn creates a new report."
-    )
+            st.warning("No verifiable source links were returned; independently check any claims.")
+    st.caption("AI analysis is advisory. Your five candidate summaries are shown below.")
 
 
 

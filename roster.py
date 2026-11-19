@@ -21,15 +21,19 @@ def assign_lineup(roster_ids, players, slots):
                      if str(slot).upper() not in BENCH]
     player_ids = [str(pid) for pid in roster_ids]
     unique = list(dict.fromkeys(player_ids))
-    slot_order = sorted(range(len(starter_slots)), key=lambda i: (
-        starter_slots[i] in ("UTIL", "UTILITY", "FLEX"),
-        starter_slots[i] in ("G", "F"),
-        i,
-    ))
+    # Prioritize exact starting slots before guard/forward and utility.
+    # A plain maximum matching can fill UTIL while leaving SG unfilled.
+    groups = (
+        [i for i, slot in enumerate(starter_slots)
+         if slot not in ("G", "F", "UTIL", "UTILITY", "FLEX")],
+        [i for i, slot in enumerate(starter_slots) if slot in ("G", "F")],
+        [i for i, slot in enumerate(starter_slots)
+         if slot in ("UTIL", "UTILITY", "FLEX")],
+    )
     matching = {}
 
-    def visit(player_id, visited):
-        for index in slot_order:
+    def visit(player_id, visited, available):
+        for index in available:
             if index in visited:
                 continue
             if not slot_compatible(starter_slots[index],
@@ -37,18 +41,19 @@ def assign_lineup(roster_ids, players, slots):
                 continue
             visited.add(index)
             current = matching.get(index)
-            if current is None or visit(current, visited):
+            if current is None or visit(current, visited, available):
                 matching[index] = player_id
                 return True
         return False
 
-    # Least-flexible players first yields predictable tie-breaking.
     unique.sort(key=lambda pid: sum(
         slot_compatible(slot, positions_of(players.get(pid, {})))
         for slot in starter_slots
     ))
-    for pid in unique:
-        visit(pid, set())
+    for available in groups:
+        for pid in unique:
+            if pid not in matching.values():
+                visit(pid, set(), available)
 
     lineup = [{"slot": slot, "player_id": matching.get(index)}
               for index, slot in enumerate(starter_slots)]

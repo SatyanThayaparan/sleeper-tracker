@@ -65,3 +65,26 @@ def chat_complete(
     )
     choice = response.choices[0].message.content if response.choices else ""
     return (choice or "").strip()
+
+def get_scout_access_code() -> str:
+    """Optional private research access gate for publicly hosted deployments.
+
+    If unset, AI Scout remains disabled to prevent anonymous visitors from
+    spending the owner's API credits. Never expose this value in a UI.
+    """
+    value = (os.getenv("PICKY_AI_SCOUT_ACCESS_CODE") or "").strip()
+    if value:
+        return value
+    try:
+        import streamlit as st
+        return str(st.secrets.get("PICKY_AI_SCOUT_ACCESS_CODE", "")).strip()
+    except Exception:
+        return ""
+
+
+def scout_access_granted(submitted: str) -> bool:
+    """Compare secret phrases without returning the configured value."""
+    from hmac import compare_digest
+    configured = get_scout_access_code()
+    return bool(configured and submitted and compare_digest(configured, submitted))
+

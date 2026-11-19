@@ -831,206 +831,275 @@ def live_dashboard(active_page: str):
 
     elif active_page == "overview":
         is_complete = draft_status in ("complete", "completed")
+        draft_active = draft_status in ("drafting", "in_progress")
+        on_clock = bool(
+            my_user_id and upcoming and upcoming[0] == next_pick
+            and draft_active and not is_complete
+        )
         render_page_header(
             title="Draft Overview",
-            subtitle=APP_TAGLINE,
-            live=not is_complete and draft_status in ("drafting", "in_progress"),
+            subtitle="Your roster, draft recommendations, and real-time pick intelligence.",
+            live=draft_active,
         )
-        safe_league = escape_html(str(league_name))
-        safe_draft = escape_html(str(draft_id))
-        safe_league_id = escape_html(str(league_id or "n/a"))
-        safe_status = escape_html(str(draft_status).replace("_", " ").title())
-        st.markdown(
-            '<div class="fx-league-card">'
-            f'<strong>{safe_league}</strong>'
-            f'<span>{teams or "—"} teams</span>'
-            '<span>Lock-In scoring</span>'
-            f'<span>Draft {safe_draft}</span>'
-            f'<span>League {safe_league_id}</span>'
-            f'<span>Status: {safe_status}</span>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        m1, m2, m3, m4 = st.columns(4, gap="medium")
-        m1.metric("Picks completed", len(picks))
-        m2.metric("Next overall pick", "—" if is_complete else next_pick)
-        m3.metric("Draft teams", teams or "—")
-        m4.metric("Draft status", safe_status)
-        st.caption(
-            "Last checked: "
-            + datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
-            + f" · Refreshing every {refresh}s"
-        )
-        if my_user_id and upcoming and not is_complete:
-            st.markdown("### Your next pick")
-            k1, k2 = st.columns(2)
-            k1.metric("Upcoming pick", f"#{upcoming[0]}")
-            k2.metric("Picks until your turn", max(0, upcoming[0] - next_pick))
-            if roster_state["open_slots"]:
-                st.caption("Positions still needed")
-                st.markdown(
-                    '<div class="fx-pick-needs">' +
-                    "".join(f'<span>{escape_html(slot)}</span>' for slot in roster_state["open_slots"]) +
-                    '</div>', unsafe_allow_html=True,
-                )
-            else:
-                st.caption("All starting positions can currently be filled. Consider depth and best value.")
-        elif not my_user_id:
-            st.info("Choose your Sleeper account in Settings to get roster-aware picks and open positions.")
-        elif is_complete:
-            st.info("This draft is complete. See My Team for your drafted roster.")
 
-        if board.get("reluctant"):
-            st.warning("The available pool includes players with injuries or unfavorable headlines.")
-
-        if is_complete:
-            st.caption("The draft has finished, so live pick research is hidden. Open My Team for your roster.")
-        else:
-            st.markdown("### Top 5 players for your next pick")
-            st.caption("Highest-ranked available options for this decision. "
-                       "These are not forced to represent different positions.")
-            top_five = top_five_for_pick(board.get("rows") or [])
-            if top_five:
-                top_frame = pd.DataFrame([
-                    {
-                        "Player": p["player"],
-                        "Position": p.get("position") or "—",
-                        "NBA team": p.get("team") or "—",
-                        "Rank value": projection_value(p, board.get("origin")),
-                        "Roster fit": p.get("roster") if my_user_id else "Select your team",
-                    }
-                    for p in top_five
-                ])
-                st.dataframe(top_frame, hide_index=True, width="stretch", height=230)
-                # Only offer links for the candidate currently being examined.
-                player_choices = [p["player"] for p in top_five]
-                examined = st.selectbox(
-                    "Research a player from this shortlist", player_choices,
-                    key=f"pick_focus_{draft_id}_{upcoming[0] if upcoming else 'complete'}",
-                )
-                focused = next((p for p in top_five if p["player"] == examined), top_five[0])
-                with st.expander(f"Details and sources: {examined}"):
-                    st.caption(f'{focused.get("position") or "Position unknown"} · '
-                               f'{focused.get("team") or "Free agent"} · '
-                               f'Injury: {focused.get("injury") or "Not listed"}')
-                    st.write(focused.get("roster") or "No roster fit information.")
-                    render_references(focused)
-                
-                st.markdown("### Picky AI Scout")
-                st.caption(
-                    "Research these five available players using recent public NBA reports. "
-                    "Results are advisory and may be incomplete. Only runs when you click "
-                    "Research — never on an automatic draft refresh."
-                )
-                if not openai_configured():
-                    st.info(
-                        "To enable AI Scout, add OPENAI_API_KEY in your Streamlit Cloud "
-                        "app Secrets (or your local .env). Do not paste your key into the page."
-                    )
-                elif not my_user_id:
-                    st.info("Select your Sleeper team under Settings for roster-specific AI analysis.")
-                elif not get_scout_access_code():
-                    st.info(
-                        "To protect your paid API key on Streamlit Cloud, set "
-                        "PICKY_AI_SCOUT_ACCESS_CODE in app Secrets. AI Scout is "
-                        "disabled until an access code is configured."
-                    )
+        # 1. Compact draft summary: useful context without a giant hero card.
+        with st.container(border=True):
+            heading, status_col = st.columns([4, 1])
+            with heading:
+                st.markdown(f"**{league_name}**")
+                st.caption(f"Draft {draft_id} · {teams or '—'} teams · "
+                           f"Status: {str(draft_status).replace('_', ' ').title()}")
+            with status_col:
+                if on_clock:
+                    st.markdown(":green[**YOUR PICK**]")
+                elif is_complete:
+                    st.caption("Draft complete")
                 else:
-                    access_value = st.text_input(
-                        "AI Scout access code", type="password",
-                        key="scout_access_input",
-                        help="The private access code set in Streamlit Cloud Secrets.",
-                    )
-                    if not scout_access_granted(access_value):
-                        st.caption("Enter the private access code to unlock paid research.")
-                    decision = research_key(
-                        draft_id,
-                        upcoming[0] if upcoming else None,
-                        roster_ids,
-                        top_five,
-                    )
-                    cached = cache_entry(st.session_state, decision)
-                    if not scout_access_granted(access_value):
-                        st.caption("No AI calls will be made until access is unlocked.")
-                    elif cached:
-                        completion = st.session_state.get("scout_completed_notice")
-                        if (completion and completion.get("decision") == decision
-                                and 0 <= time.time() - completion["at"] < 8):
-                            st.markdown(
-                                '<div class="fx-scout-complete" role="status">'
-                                '✓ Research complete — your AI scouting report is ready.'
-                                '</div>',
-                                unsafe_allow_html=True,
-                            )
-                        render_scout_report(cached)
-                    elif research_allowed(st.session_state, decision):
-                        if st.button(
-                            "Run AI Scout · Research My Top 5",
-                            key=f"scout_research_{decision}",
-                            type="primary",
-                            icon=":material/auto_awesome:",
-                            use_container_width=True,
-                        ):
-                            with st.status(
-                                "Researching NBA players and recent reports…",
-                                expanded=True,
-                            ) as research_status:
-                                st.write("1. Search relevant NBA articles for each candidate.")
-                                st.write("2. Compare injury updates, roles, and playing-time evidence.")
-                                st.write("3. Evaluate draft value and your open roster positions.")
-                                st.write("4. Prepare a sourced player-by-player report.")
-                                try:
-                                    use_scout(
-                                        st.session_state, decision, top_five,
-                                        open_slots=roster_state["open_slots"],
-                                    )
-                                except Exception as exc:
-                                    research_status.update(
-                                        label="AI Scout research failed",
-                                        state="error", expanded=True,
-                                    )
-                                    st.error("AI Scout could not complete its report: "
-                                             + str(exc)[:180])
-                                else:
-                                    research_status.update(
-                                        label="Scouting report ready",
-                                        state="complete", expanded=False,
-                                    )
-                                    st.session_state["scout_completed_notice"] = {
-                                        "decision": decision,
-                                        "at": time.time(),
-                                    }
-                                    st.rerun(scope="fragment")
-                    else:
-                        st.warning(
-                            "AI Scout request limit reached for this pick or "
-                            "browser session. Rankings remain available."
+                    st.caption("Draft tracker")
+            d1, d2, d3, d4 = st.columns(4)
+            d1.metric("Picks made", len(picks))
+            d2.metric("Current pick", "—" if is_complete else f"#{next_pick}")
+            d3.metric("Your next pick", f"#{upcoming[0]}" if upcoming and not is_complete else "—")
+            d4.metric("Until your turn", max(upcoming[0] - next_pick, 0)
+                      if upcoming and not is_complete else "—")
+            st.caption(
+                "Last synced " + datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
+                + f" · Updating every {refresh}s"
+            )
+
+        # 2. Show filled slots and needs before any recommendations.
+        st.markdown("### My team & positional needs")
+        if my_user_id and roster_state:
+            filled_col, needed_col = st.columns(2, gap="medium")
+            with filled_col:
+                with st.container(border=True):
+                    st.markdown("**Your projected starters**")
+                    st.caption(f"{roster_state['filled']} of {roster_state['total']} starter slots filled")
+                    for assignment in roster_state["lineup"]:
+                        pid = assignment["player_id"]
+                        if not pid:
+                            continue
+                        st.write(f"**{assignment['slot']}** · {player_name(pid, players, picks)}")
+                    if not roster_ids:
+                        st.caption("You haven't drafted any players yet.")
+            with needed_col:
+                with st.container(border=True):
+                    st.markdown("**Positions to fill**")
+                    remaining = roster_state["open_slots"]
+                    if remaining:
+                        st.markdown(
+                            '<div class="fx-pick-needs">'
+                            + "".join(f'<span>{escape_html(str(position))}</span>'
+                                      for position in remaining)
+                            + "</div>",
+                            unsafe_allow_html=True,
                         )
-                    st.caption(
-                        "AI Scout can incur OpenAI API and web-search charges. "
-                        f"Up to {MAX_PER_SESSION} attempts per browser session; "
-                        f"reports expire after {CACHE_TTL_SECONDS // 60} minutes "
-                        "and are hidden when the shortlist changes."
-                    )
+                        st.caption("These are projected empty starting positions. "
+                                   "Bench depth may still be useful.")
+                    else:
+                        st.success("Your drafted players can fill all current starting slots.")
+                    st.caption(f"Total drafted: {len(roster_ids)}")
+            with st.expander("See full roster details"):
+                if roster_state["bench_ids"]:
+                    st.markdown("**Additional drafted players**")
+                    for pid in roster_state["bench_ids"]:
+                        st.write(player_name(pid, players, picks))
+                st.caption("Lineup placement is a projection, not a submitted Sleeper lineup.")
+        else:
+            st.info("Choose your Sleeper account in Settings to see your team and positional needs.")
+
+        # 3. AI Scout: unlocked once in this session, auto-runs ONCE when
+        # Sleeper confirms this is your turn. Does not call OpenAI on other refreshes.
+        st.markdown("### Picky AI Scout")
+        if is_complete:
+            st.info("Draft complete. Your live scouting reports are no longer active.")
+        else:
+            top_five = top_five_for_pick(board.get("rows") or [])
+            if not top_five:
+                st.info("Waiting for available player rankings before scouting.")
+            elif not my_user_id:
+                st.info("Select your Sleeper account to enable turn-based AI scouting.")
+            elif not openai_configured():
+                st.info("Add OPENAI_API_KEY in Streamlit Secrets to enable AI research.")
+            elif not get_scout_access_code():
+                st.info("Set PICKY_AI_SCOUT_ACCESS_CODE in Streamlit Secrets to protect paid AI requests.")
             else:
-                st.info("No available players could be ranked for this pick.")
-            left, right = st.columns(2, gap="medium")
-            with left:
-                render_pick_card(
-                    "Sleeper pick",
-                    board.get("sleeper"),
-                    "No later ADP stands out in the next six rounds.",
-                    badge="VALUE",
-                    badge_class="fx-badge-value",
+                if not st.session_state.get("scout_unlocked", False):
+                    code = st.text_input(
+                        "Unlock automated AI Scout", type="password",
+                        key="scout_access_input",
+                        help="After unlocking, Picky researches the next Top 5 once "
+                             "when you are on the clock. OpenAI charges may apply.",
+                    )
+                    if code and scout_access_granted(code):
+                        st.session_state.scout_unlocked = True
+                        st.success("AI Scout unlocked for this browser session.")
+                    else:
+                        st.caption("Enter your passkey once to enable automatic on-turn research.")
+                unlocked = bool(st.session_state.get("scout_unlocked", False))
+                if unlocked:
+                    st.caption("Scout unlocked · Automatically researches your Top 5 "
+                               "when Sleeper shows it's your turn.")
+                    # Keep identity stable for an entire turn: minor rank changes
+                    # cannot restart billable research.
+                    next_owned_pick = upcoming[0] if upcoming else None
+                    turn_key = (turn_research_key(draft_id, my_user_id, next_owned_pick)
+                                if next_owned_pick is not None else None)
+                    if on_clock and turn_key:
+                        st.markdown(":green[**You're on the clock — AI Scout is active.**]")
+                    elif upcoming:
+                        st.info(f"Next AI research starts when pick #{upcoming[0]} is on the clock.")
+                    else:
+                        st.caption("Waiting for an upcoming pick in the Sleeper draft order.")
+
+                    if auto_research_due(
+                        st.session_state, turn_key,
+                        on_clock=on_clock, unlocked=unlocked,
+                        configured=openai_configured(),
+                        candidate_count=len(top_five),
+                        draft_active=draft_active,
+                    ):
+                        # Mark before doing network I/O to avoid repeated charges
+                        # if Streamlit reruns while a request is underway.
+                        record_auto_attempt(st.session_state, turn_key)
+                        with st.status(
+                            "AI Scout is researching your current pick…",
+                            state="running", expanded=True,
+                        ) as progress:
+                            st.write("Checking NBA news, injuries, roles and playing-time reports.")
+                            st.write("Comparing the five available players with your roster needs.")
+                            try:
+                                use_scout(
+                                    st.session_state, turn_key, top_five,
+                                    open_slots=roster_state["open_slots"],
+                                )
+                            except Exception as exc:
+                                st.session_state.setdefault("ai_scout_turn_errors", {})[turn_key] = (
+                                    str(exc)[:220]
+                                )
+                                progress.update(
+                                    label="Research needs attention", state="error",
+                                    expanded=False,
+                                )
+                            else:
+                                st.session_state.get("ai_scout_turn_errors", {}).pop(turn_key, None)
+                                progress.update(
+                                    label="AI research complete", state="complete",
+                                    expanded=False,
+                                )
+
+                    cached = cache_entry(st.session_state, turn_key) if turn_key else None
+                    if cached:
+                        render_scout_report(cached, top_five)
+                    elif turn_key in st.session_state.get("ai_scout_turn_errors", {}):
+                        st.warning("Automatic scouting couldn't finish: "
+                                   + st.session_state["ai_scout_turn_errors"][turn_key])
+                        st.caption("Picky won't auto-retry this turn to avoid repeat API charges.")
+                        if research_allowed(st.session_state, turn_key):
+                            if st.button(
+                                "Retry AI Scout for this pick",
+                                type="primary", icon=":material/refresh:",
+                                key=f"scout_research_{turn_key}",
+                                use_container_width=True,
+                            ):
+                                with st.spinner("Retrying player research…"):
+                                    try:
+                                        use_scout(
+                                            st.session_state, turn_key, top_five,
+                                            open_slots=roster_state["open_slots"],
+                                        )
+                                    except Exception as exc:
+                                        st.session_state["ai_scout_turn_errors"][turn_key] = str(exc)[:220]
+                                    else:
+                                        st.session_state["ai_scout_turn_errors"].pop(turn_key, None)
+                                        st.rerun(scope="fragment")
+                    elif on_clock and turn_key in st.session_state.get("ai_scout_auto_attempted", set()):
+                        st.info("AI research requested for this turn. Results will appear when ready.")
+                    else:
+                        st.caption("Before your turn, Picky will show the ranking-based Top 5 below.")
+                st.caption(
+                    "AI Scout runs once automatically per turn after you unlock it. "
+                    "A live response may use API credits. Research is not a guaranteed prediction."
                 )
-            with right:
-                render_pick_card(
-                    "Fade",
-                    board.get("fade"),
-                    "No high-ADP player is clearly ruled out by an injury tag or headline.",
-                    badge="CAUTION",
-                    badge_class="fx-badge-caution",
-                )
+
+            # Clear fallback: always give useful explanations when AI is unavailable.
+            st.markdown("#### Top 5 available options")
+            if top_five:
+                ai_report = None
+                if (my_user_id and upcoming and
+                        st.session_state.get("scout_unlocked", False)):
+                    current_key = turn_research_key(draft_id, my_user_id, upcoming[0])
+                    current_entry = cache_entry(st.session_state, current_key)
+                    ai_report = (current_entry or {}).get("report")
+                ai_players = {
+                    row.get("name"): row
+                    for row in (ai_report or {}).get("players", [])
+                    if isinstance(row, dict)
+                }
+                for rank_no, candidate in enumerate(top_five, 1):
+                    player_name_text = str(candidate.get("player") or "Player")
+                    player_ai = ai_players.get(player_name_text, {})
+                    with st.container(border=True):
+                        left, right = st.columns([4, 1])
+                        with left:
+                            st.markdown(f"**{rank_no}. {escape_html(player_name_text)}**")
+                            st.caption(f"{candidate.get('position') or '—'} · "
+                                       f"{candidate.get('team') or '—'}")
+                        with right:
+                            if player_name_text == (ai_report or {}).get("recommended_player"):
+                                st.markdown(":green[**AI PICK**]")
+                        st.write(
+                            player_ai.get("draft_fit")
+                            or candidate.get("roster")
+                            or "Available player with a strong Picky ranking."
+                        )
+                        if player_ai:
+                            st.caption("AI insight: " + str(
+                                player_ai.get("recent_findings") or
+                                player_ai.get("role_outlook") or "Evidence unavailable."
+                            ))
+                st.caption("These five are selected by Picky's ranking engine. "
+                           "AI insights appear after current-pick research completes.")
+
+        # 4. Recent draft selections and *actual* lowest ADP players.
+        st.markdown("### Draft board & ADP leaders")
+        recent_col, adp_col = st.columns(2, gap="large")
+        with recent_col:
+            with st.container(border=True):
+                st.markdown("**Latest picks**")
+                if picks:
+                    for pick in reversed(picks[-5:]):
+                        name = player_name(pick.get("player_id"), players, picks)
+                        st.markdown(
+                            f"**#{pick.get('pick_no') or '—'}** · "
+                            f"{escape_html(str(name))}"
+                        )
+                else:
+                    st.caption("No players have been drafted yet.")
+                st.caption("Open Draft Board for the full selection history.")
+        with adp_col:
+            with st.container(border=True):
+                st.markdown("**Top 5 available by ADP**")
+                with_adp = [p for p in board.get("rows") or []
+                            if p.get("blend_adp") is not None]
+                with_adp.sort(key=lambda p: float(p["blend_adp"]))
+                if with_adp:
+                    for player in with_adp[:5]:
+                        st.markdown(
+                            f"**{escape_html(str(player.get('player') or 'Player'))}**"
+                            f" · ADP {float(player['blend_adp']):.1f}"
+                        )
+                    st.caption("Lower ADP means players typically get selected earlier.")
+                else:
+                    st.caption("No blended ADP data is currently available.")
+        # 5. Important caveats and optional advanced links remain accessible.
+        with st.expander("More draft context & player research"):
+            st.caption(f"League ID: {league_id or 'Unavailable'} · "
+                       f"Draft ID: {draft_id} · Draft format: {fresh_draft.get('type') or 'Unknown'}")
+            st.caption("Your next pick is estimated from Sleeper's draft order. "
+                       "Traded picks can differ from the original order.")
+            st.caption("AI findings, ADP, and injury information may change. "
+                       "Always confirm the actual player is available in Sleeper.")
 
     elif active_page == "board":
         completed = draft_status in ("complete", "completed")

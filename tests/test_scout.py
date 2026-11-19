@@ -152,7 +152,7 @@ class ScoutTests(unittest.TestCase):
             "following_pick": 54, "league_teams": 12,
         }, client=SimpleNamespace(responses=FakeResponses()))
         prompt = calls[0]["input"]
-        self.assertIn('"following_pick": 54', prompt)
+        self.assertIn('"my_following_pick": 54', prompt)
         self.assertIn('"sleeper_search_rank": 19', prompt)
 
     def test_reject_more_than_five(self):

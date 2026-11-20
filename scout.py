@@ -333,7 +333,15 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
     )
     body = (getattr(response, "output_text", "") or "").strip()
     if not body:
-        raise RuntimeError("AI Scout returned no report. No result was saved.")
+        status = str(getattr(response, "status", "") or "unknown")
+        details = getattr(response, "incomplete_details", None)
+        reason = str(getattr(details, "reason", "") or "not supplied")
+        raise RuntimeError(
+            f"OpenAI returned no structured scouting report (status={status}; "
+            f"incomplete_reason={reason}). The model may have exhausted its "
+            "output budget or could not finish the web research. "
+            "No AI report was saved."
+        )
     try:
         report = json.loads(body)
     except json.JSONDecodeError as exc:

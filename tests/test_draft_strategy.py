@@ -55,7 +55,10 @@ class TimingTests(unittest.TestCase):
             player_headshot_url({"nba_id": "2544", "player_id": "irrelevant"}),
             "https://cdn.nba.com/headshots/nba/latest/260x190/2544.png",
         )
-        self.assertIsNone(player_headshot_url({"player_id": "2544"}))
+        self.assertEqual(player_headshot_url({"player_id": "2544"}),
+                         "https://sleepercdn.com/content/nba/players/thumb/2544")
+        self.assertEqual(player_headshot_url({}, "1240"),
+                         "https://sleepercdn.com/content/nba/players/thumb/1240")
         self.assertIsNone(player_headshot_url({"nba_id": "2544.png"}))
         self.assertIsNone(player_headshot_url({"nba_id": "../2544"}))
         self.assertIsNone(player_headshot_url({"nba_id": "0" * 20}))

@@ -15,6 +15,26 @@ class TimingTests(unittest.TestCase):
         self.assertIn("#46", signal["reason"])
         self.assertNotIn("%", signal["reason"])
 
+    def test_opponent_competition_can_raise_moderate_to_elevated(self):
+        signal = evaluate_pick_timing(
+            {"position": "SG", "blend_adp": 49},
+            current_pick=35, following_pick=46, open_slots=["SG"],
+            opponent={"has_roster_context": True,
+                      "matching_picks": 3, "matching_teams": 2},
+        )
+        self.assertEqual(signal["risk"], "elevated")
+        self.assertIn("opponents", signal["reason"])
+        self.assertNotIn("%", signal["reason"])
+
+    def test_unknown_adp_stays_unknown_despite_opponents(self):
+        signal = evaluate_pick_timing(
+            {"position": "SF", "blend_adp": None},
+            current_pick=35, following_pick=46,
+            opponent={"has_roster_context": True,
+                      "matching_picks": 5, "matching_teams": 4},
+        )
+        self.assertEqual(signal["risk"], "unknown")
+
     def test_moderate_when_adp_near_next_pick(self):
         signal = evaluate_pick_timing(
             {"position": "SF", "blend_adp": 49},

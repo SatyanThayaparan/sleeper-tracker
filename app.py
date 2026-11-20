@@ -1268,6 +1268,43 @@ def live_dashboard(active_page: str):
                     "A live response may use API credits. Research is not a guaranteed prediction."
                 )
 
+            # Show the actual concept recommendation card even before a paid
+            # AI request. Label it a ranking preview, not an AI-reviewed pick.
+            report_ready = False
+            if my_user_id and upcoming and st.session_state.get("scout_unlocked", False):
+                preview_key = turn_research_key(draft_id, my_user_id, upcoming[0])
+                report_ready = bool(cache_entry(st.session_state, preview_key))
+            if top_five and not report_ready:
+                featured = top_five[0]
+                featured_name = str(featured.get("player") or "Player")
+                featured_wait = evaluate_pick_timing(
+                    featured, current_pick=next_pick,
+                    following_pick=following_pick,
+                    open_slots=roster_state["open_slots"] if roster_state else [],
+                    opponent=opponent_by_player.get(featured_name),
+                )
+                with st.container(border=True, key="scout_recommended_preview"):
+                    st.html(
+                        '<div class="fx-recommend-banner">'
+                        '<span>✦ PICKY AI SCOUT</span>'
+                        '<strong>RANKING-BASED PREVIEW · NOT YET AI-RESEARCHED</strong>'
+                        '</div>'
+                    )
+                    st.markdown(f"### {escape_html(featured_name)}")
+                    st.caption(
+                        f'{featured.get("team") or "—"} · '
+                        f'{featured.get("position") or "Position unavailable"}'
+                    )
+                    st.write(featured.get("roster") or
+                             "Highest-ranked available candidate in Picky's current board.")
+                    k1, k2 = st.columns(2)
+                    k1.metric("Your following estimated pick", 
+                              f"#{following_pick}" if following_pick else "Unknown")
+                    k2.metric("Waiting risk", featured_wait["risk"].title())
+                    st.caption(featured_wait["reason"])
+                    st.caption("AI evidence and full research will appear when "
+                               "your active pick is researched. No API call was made for this preview.")
+
             # Clear fallback: always give useful explanations when AI is unavailable.
             st.markdown("#### Top 5 available options")
             if top_five:

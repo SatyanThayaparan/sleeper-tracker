@@ -398,12 +398,6 @@ def render_roster_grid(roster_state, players, picks):
 def render_team_breakdown(roster_ids, players, roster_state):
     """Separately show core five coverage and each rostered NBA team's geography."""
     snapshot = roster_breakdown(roster_ids, players, roster_state)
-    covered = snapshot["covered_count"]
-    positions = "".join(
-        f'<span class="fx-team-pos {"fx-team-pos-filled" if filled else "fx-team-pos-open"}">'
-        f'{escape_html(position)} <small>{"✓" if filled else "—"}</small></span>'
-        for position, filled in snapshot["coverage"].items()
-    )
     eligible_counts = snapshot["eligible_counts"]
     eligible_chips = "".join(
         '<span class="fx-team-pos '
@@ -432,16 +426,10 @@ def render_team_breakdown(roster_ids, players, roster_state):
     st.html(
         '<div class="fx-team-breakdown">'
         '<section class="fx-team-panel">'
-        '<span class="fx-team-eyebrow">Starting five covered</span>'
-        f'<strong class="fx-team-coverage">{covered}<small> / 5</small></strong>'
-        f'<div class="fx-team-position-list">{positions}</div>'
-        '<small class="fx-team-footnote">Only assigned PG, SG, SF, PF and C starting slots</small>'
-        '</section>'
-        '<section class="fx-team-panel">'
-        '<span class="fx-team-eyebrow">Total eligible position coverage</span>'
-        f'<strong class="fx-team-coverage">{snapshot["eligible_covered_count"]}<small> / 5 positions</small></strong>'
+        '<span class="fx-team-eyebrow">Role coverage</span>'
+        f'<strong class="fx-team-coverage">{snapshot["eligible_covered_count"]}<small> / 5 positions covered</small></strong>'
         f'<div class="fx-team-position-list">{eligible_chips}</div>'
-        f'<small class="fx-team-footnote">{snapshot["eligible_role_total"]} combined player-position eligibilities · includes all drafted starters, utilities and bench players</small>'
+        '<small class="fx-team-footnote">Counts show how many drafted players can play each position, including utility and bench players.</small>'
         '</section>'
         '<section class="fx-team-panel">'
         '<span class="fx-team-eyebrow">NBA teams represented</span>'

@@ -43,7 +43,7 @@ def normalized_source_url(url):
             (key, value) for key, value in parse_qsl(
                 parts.query, keep_blank_values=True
             ) if not (key.lower().startswith("utm_") or key.lower() in
-                      ("fbclid", "gclid", "ref", "source", "mc_cid", "mc_eid"))
+                      ("utm", "tracking", "fbclid", "gclid", "ref", "source", "mc_cid", "mc_eid"))
         ))
         return urlunsplit(("https", host.removeprefix("www."), path, query, ""))
     except ValueError:

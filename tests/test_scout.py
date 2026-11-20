@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from scout import (
-    CACHE_TTL_SECONDS, MAX_PER_PICK, cache_entry, research_allowed,
+    CACHE_TTL_SECONDS, cache_entry, research_allowed,
     research_key, run_scout, safe_source_urls, use_scout,
     turn_research_key, auto_research_due, record_auto_attempt,
 )
@@ -49,14 +49,15 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual(len(called), 1)
         self.assertEqual(cache_entry(session, key), result)
 
-    def test_request_limit(self):
+    def test_no_local_request_limits(self):
         session = {}
-        for _ in range(MAX_PER_PICK):
+        for _ in range(20):
             use_scout(session, "one", self.players, open_slots=[],
                       research_fn=lambda *_args, **_kw: {
                           "text": "test", "timestamp": time.time(), "sources": []
                       })
-        self.assertFalse(research_allowed(session, "one"))
+        self.assertTrue(research_allowed(session, "one"))
+        self.assertEqual(session["ai_scout_session_calls"], 20)
 
     def test_requires_access_code_without_secret(self):
         from ai import scout_access_granted
@@ -237,7 +238,7 @@ class ScoutTests(unittest.TestCase):
                           **dict(common, draft_active=False)))
         self.assertFalse(auto_research_due(session, key, on_clock=True,
                           **dict(common, candidate_count=0)))
-        self.assertTrue(auto_research_due(session, key, on_clock=True, **common))
+        self.assertFalse(auto_research_due(session, key, on_clock=True, **common))
         record_auto_attempt(session, key)
         self.assertFalse(auto_research_due(session, key, on_clock=True, **common))
 

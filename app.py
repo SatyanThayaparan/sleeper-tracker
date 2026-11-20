@@ -478,6 +478,16 @@ def show_scout_player_details(candidate, player_ai, timing, source_list):
     st.write(timing["reason"])
     if player_ai.get("why_now"):
         st.write(player_ai["why_now"])
+    if not player_ai:
+        st.warning("No completed AI research is attached to this player for the current "
+                   "Top 5. These details currently come from Picky's ranking engine "
+                   "and Sleeper, not from ESPN/Yahoo research. Close this panel "
+                   "and use **Run AI research now** in Picky AI Scout to request "
+                   "a source-backed report.")
+        st.caption("A research request uses OpenAI API/web-search credits.")
+        if st.button("Close details", key="close_unresearched_scout", use_container_width=True):
+            st.rerun()
+        return
     st.markdown("#### NBA scouting report")
     col1, col2 = st.columns(2)
     with col1:
@@ -1348,18 +1358,41 @@ def live_dashboard(active_page: str):
                         cached = None
                     if cached:
                         render_scout_report(cached, top_five)
-                    elif turn_key in st.session_state.get("ai_scout_turn_errors", {}):
-                        st.warning("Automatic scouting couldn't finish: "
-                                   + st.session_state["ai_scout_turn_errors"][turn_key])
-                        st.caption("Picky won't auto-retry this turn to avoid repeat API charges.")
-                        if research_allowed(st.session_state, turn_key):
+                    else:
+                        failed = turn_key in st.session_state.get("ai_scout_turn_errors", {})
+                        if failed:
+                            st.error("AI research failed for this pick. No report was saved.")
+                            with st.expander("Research error and recovery information"):
+                                st.code(st.session_state["ai_scout_turn_errors"][turn_key])
+                                st.caption("Review your OpenAI API quota, web-search availability "
+                                           "and Streamlit logs. A manual retry may incur API charges.")
+                        elif on_clock and turn_key in st.session_state.get("ai_scout_auto_attempted", set()):
+                            st.warning("AI Scout attempted research, but no completed report is "
+                                       "available for the current five players.")
+                        else:
+                            st.info("No completed AI research has been run for this Top 5. "
+                                    "The player cards below are ranking-only previews.")
+
+                        if turn_key and research_allowed(st.session_state, turn_key):
+                            used = st.session_state.get("ai_scout_call_counts", {}).get(turn_key, 0)
+                            st.caption(
+                                f"AI research requests this pick: {used}/{MAX_PER_PICK}. "
+                                "Research uses paid OpenAI web-search/model credits. "
+                                "It does not run until you click."
+                            )
                             if st.button(
-                                "Retry AI Scout for this pick",
-                                type="primary", icon=":material/refresh:",
-                                key=f"scout_research_{turn_key}",
+                                "Run AI research now" if not failed else "Retry AI research",
+                                icon=":material/travel_explore:",
+                                type="primary",
+                                key=f"scout_manual_request_{turn_key}",
                                 use_container_width=True,
                             ):
-                                with st.spinner("Retrying player research…"):
+                                # If on the clock, the manual request is the one
+                                # authorized attempt for this refresh cycle.
+                                if on_clock:
+                                    record_auto_attempt(st.session_state, turn_key)
+                                with st.status("Researching NBA and fantasy expert reports…",
+                                               expanded=True) as progress:
                                     try:
                                         use_scout(
                                             st.session_state, turn_key, top_five,
@@ -1374,14 +1407,21 @@ def live_dashboard(active_page: str):
                                             },
                                         )
                                     except Exception as exc:
-                                        st.session_state["ai_scout_turn_errors"][turn_key] = str(exc)[:220]
+                                        st.session_state.setdefault("ai_scout_turn_errors", {})[turn_key] = (
+                                            str(exc)[:500]
+                                        )
+                                        progress.update(label="Research failed — see error above",
+                                                        state="error", expanded=False)
+                                        st.error("AI research did not complete: " + str(exc)[:300])
                                     else:
-                                        st.session_state["ai_scout_turn_errors"].pop(turn_key, None)
+                                        st.session_state.get("ai_scout_turn_errors", {}).pop(turn_key, None)
+                                        progress.update(label="Report ready",
+                                                        state="complete", expanded=False)
                                         st.rerun(scope="fragment")
-                    elif on_clock and turn_key in st.session_state.get("ai_scout_auto_attempted", set()):
-                        st.info("AI research requested for this turn. Results will appear when ready.")
-                    else:
-                        st.caption("Before your turn, Picky will show the ranking-based Top 5 below.")
+                        else:
+                            st.caption("No further AI research requests remain in this browser "
+                                       "session or for this pick. The ranking-only recommendations "
+                                       "are still available.")
                 st.caption(
                     "AI Scout runs once automatically per turn after you unlock it. "
                     "A live response may use API credits. Research is not a guaranteed prediction."

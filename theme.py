@@ -859,6 +859,75 @@ section[data-testid="stSidebar"] [class*="st-key-nav_"] button:focus-visible {
   }
 }
 
+/* Center the monogram in its entire column and increase visual weight. */
+.fx-scout-avatar-wrap {
+  display: flex;
+  width: 100%;
+  min-height: 66px;
+  justify-content: center;
+  align-items: center;
+}
+.fx-scout-avatar-wrap .fx-scout-photo-fallback {
+  width: 62px;
+  height: 62px;
+  border-radius: 15px;
+  border: 1px solid rgba(102, 238, 164, .42);
+  background: linear-gradient(145deg, #2D7351, #1D4F40);
+  color: #B9FFDB;
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 4px 14px rgba(10, 45, 28, .24);
+}
+/* Scope button style to the player modal triggers, leaving other buttons intact. */
+[class*="st-key-scout_detail_"] button,
+[class*="st-key-scout_detail_"] button[kind="secondary"] {
+  width: 100% !important;
+  min-height: 43px !important;
+  padding: 9px 13px !important;
+  border-radius: 11px !important;
+  background: #39C889 !important;
+  border: 1px solid #69E9AF !important;
+  color: #09291D !important;
+  font-weight: 800 !important;
+  font-size: 13px !important;
+  box-shadow: 0 3px 10px rgba(29, 137, 83, .16);
+  transition: background .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+[class*="st-key-scout_detail_"] button p,
+[class*="st-key-scout_detail_"] button span,
+[class*="st-key-scout_detail_"] button svg,
+[class*="st-key-scout_detail_"] button [data-testid="stIconMaterial"] {
+  color: #09291D !important;
+  fill: none;
+  font-weight: 800 !important;
+  opacity: 1 !important;
+}
+[class*="st-key-scout_detail_"] button:hover {
+  background: #66E5AA !important;
+  border-color: #B0F6CE !important;
+  box-shadow: 0 5px 16px rgba(29, 137, 83, .28) !important;
+  transform: translateY(-1px);
+}
+[class*="st-key-scout_detail_"] button:focus-visible {
+  outline: 3px solid #A7F3D0 !important;
+  outline-offset: 3px;
+}
+@media (max-width: 760px) {
+  .fx-scout-avatar-wrap { min-height: 50px; }
+  .fx-scout-avatar-wrap .fx-scout-photo-fallback {
+    width: 47px; height: 47px; font-size: 16px; border-radius: 11px;
+  }
+  [class*="st-key-scout_detail_"] button {
+    min-height: 42px !important;
+    padding: 7px 9px !important;
+    font-size: 12px !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [class*="st-key-scout_detail_"] button { transition: none; }
+}
+
 /* Slightly roomier candidate comparisons, reliable monogram and responsive actions. */
 [class*="st-key-ai_candidate_"] [data-testid="stVerticalBlockBorderWrapper"] {
   padding: 13px 14px !important;

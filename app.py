@@ -1249,9 +1249,48 @@ def live_dashboard(active_page: str):
                     if on_clock and turn_key:
                         st.markdown(":green[**You're on the clock — AI Scout is active.**]")
                     elif upcoming:
-                        st.info(f"Next AI research starts when pick #{upcoming[0]} is on the clock.")
+                        st.info(f"Auto-research starts at your pick #{upcoming[0]}. "
+                                "You can also run the expert report early below.")
                     else:
                         st.caption("Waiting for an upcoming pick in the Sleeper draft order.")
+
+                    # Pre-pick expert scouting is deliberately manual and paid,
+                    # shares the exact same turn cache as on-clock research,
+                    # and cannot be called repeatedly by Streamlit polling.
+                    if (turn_key and not on_clock
+                            and cache_entry(st.session_state, turn_key) is None
+                            and research_allowed(st.session_state, turn_key)):
+                        st.caption("Optional: search ESPN/Yahoo fantasy cheat sheets, "
+                                   "NBA articles, injury updates and expert opinions "
+                                   "for your current Top 5 before your turn. "
+                                   "Uses OpenAI web-search credits once per click.")
+                        if st.button("Research expert reports now",
+                                     icon=":material/travel_explore:",
+                                     type="primary", key=f"expert_research_{turn_key}"):
+                            with st.status("Researching experts and NBA reports…",
+                                           expanded=True) as progress:
+                                try:
+                                    use_scout(
+                                        st.session_state, turn_key, top_five,
+                                        open_slots=roster_state["open_slots"],
+                                        context={
+                                            "upcoming_pick": upcoming[0],
+                                            "following_pick": following_pick,
+                                            "current_pick": next_pick,
+                                            "league_teams": teams,
+                                            "opponent_by_player": opponent_by_player,
+                                            "roster_eligible_counts": role_counts(roster_ids, players),
+                                        },
+                                    )
+                                except Exception as exc:
+                                    st.error("Expert report could not be completed: "
+                                             + str(exc)[:200])
+                                    progress.update(label="Research unavailable",
+                                                    state="error", expanded=False)
+                                else:
+                                    progress.update(label="Expert research complete",
+                                                    state="complete", expanded=False)
+                                    st.rerun(scope="fragment")
 
                     if auto_research_due(
                         st.session_state, turn_key,

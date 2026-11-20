@@ -62,6 +62,27 @@ def roster_breakdown(roster_ids, players, roster_state):
         if row.get("player_id") is not None and row.get("slot") in CORE_POSITIONS
     }
     coverage = {pos: pos in occupied for pos in CORE_POSITIONS}
+
+    # A player can provide flexibility at multiple positions, regardless of
+    # which starter/utility/bench slot was allocated to them. Count each
+    # player once per eligible core position; do not count the player twice
+    # when Sleeper returns repeated position labels.
+    eligible_counts = Counter({pos: 0 for pos in CORE_POSITIONS})
+    seen_player_ids = set()
+    for player_id in roster_ids:
+        pid = str(player_id)
+        if pid in seen_player_ids:
+            continue
+        seen_player_ids.add(pid)
+        meta = players.get(pid) or {}
+        positions = meta.get("fantasy_positions") or []
+        if isinstance(positions, str):
+            positions = positions.split(",")
+        eligible = {str(pos).strip().upper() for pos in positions}
+        for pos in CORE_POSITIONS:
+            if pos in eligible:
+                eligible_counts[pos] += 1
+
     teams = Counter()
     conferences = Counter()
     divisions = Counter()
@@ -80,6 +101,9 @@ def roster_breakdown(roster_ids, players, roster_state):
             divisions[division] += 1
     return {
         "coverage": coverage, "covered_count": sum(coverage.values()),
+        "eligible_counts": {pos: eligible_counts[pos] for pos in CORE_POSITIONS},
+        "eligible_covered_count": sum(eligible_counts[pos] > 0 for pos in CORE_POSITIONS),
+        "eligible_role_total": sum(eligible_counts.values()),
         "teams": teams, "conferences": conferences, "divisions": divisions,
         "unknown": unknown,
     }

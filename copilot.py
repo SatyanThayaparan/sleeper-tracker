@@ -7,8 +7,6 @@ import json
 
 from ai import chat_complete
 
-MAX_FOLLOWUPS = 8
-
 
 def context_snapshot(candidates, *, role_counts, next_pick, report=None):
     short = [{
@@ -62,8 +60,6 @@ def ask_copilot(session, *, key, context, question, completion_fn=chat_complete)
     history = session.setdefault("picky_copilot_history", {})
     turns = history.setdefault(key, [])
     attempts = session.setdefault("picky_copilot_attempts", {})
-    if attempts.get(key, 0) >= MAX_FOLLOWUPS:
-        raise RuntimeError("AI Copilot's per-turn request limit has been reached.")
     # Request is manual. No browsing/web-search tools are exposed here.
     system = (
         "You are Picky, a concise Sleeper NBA Lock-In draft advisor. "

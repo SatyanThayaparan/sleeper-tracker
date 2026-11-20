@@ -584,26 +584,44 @@ def render_scout_report(entry, candidates):
         st.caption("No independently cited findings in this result. "
                    "Your ranking-based recommendations remain unchanged.")
 
-    with st.expander("Expert research · sources, articles and diagnostics"):
+    st.markdown("#### Quick research takeaways")
+    for candidate in candidates:
+        name = str(candidate.get("player") or "")
+        player = players.get(name) or {}
+        summary = str(player.get("recent_findings") or "").strip()
+        is_sourced = name in sourced
+        with st.container(border=True):
+            col_name, col_conf = st.columns([4, 1], vertical_alignment="center")
+            with col_name:
+                st.markdown(f"**{escape_html(name)}**")
+            with col_conf:
+                if is_sourced:
+                    st.caption("Sources linked")
+                else:
+                    st.caption("Unverified")
+            st.write(summary or
+                     "No outside findings were returned. Picky's ranking and "
+                     "roster-fit analysis remain available.")
+
+    with st.expander("Expert research · sources and diagnostics"):
         st.caption(
             f"{reviewed}/{len(candidates)} player summaries · "
-            f"{len(sourced)}/{len(candidates)} with cited reports · "
-            f"{source_count} source links. "
-            "A linked source is not independent confirmation of an AI interpretation."
+            f"{len(sourced)}/{len(candidates)} with linked findings · "
+            f"{source_count} cited links. AI interpretation and reported dates "
+            "must be checked against the original articles."
         )
         for candidate in candidates:
             name = str(candidate.get("player") or "")
             player = players.get(name)
             with st.expander(name):
                 if not player:
-                    st.caption("No individual response returned for this player.")
+                    st.caption("No player-specific report returned.")
                     continue
-                if name not in sourced:
-                    st.caption("No attributed reporting returned; this is not an expert endorsement.")
-                else:
-                    st.write(player.get("recent_findings") or "No recent finding summarized.")
-                    if player.get("expert_take"):
-                        st.write(player["expert_take"])
+                st.write(player.get("role_outlook") or "Role not verified")
+                if player.get("expert_take"):
+                    st.write(player["expert_take"])
+                if player.get("availability_risk"):
+                    st.caption("Availability: " + str(player["availability_risk"]))
                 for item in (player.get("verified_expert_evidence") or []):
                     st.markdown(
                         f"**{escape_html(str(item.get('publisher') or 'Article'))}** "
@@ -612,13 +630,17 @@ def render_scout_report(entry, candidates):
                     st.write(item.get("claim") or "")
                     st.caption(str(item.get("freshness") or "Date unknown"))
                     st.link_button("Read source", item["source_url"])
+                if not player.get("verified_expert_evidence"):
+                    st.caption("No individually attributable source link was returned; "
+                               "the above summary is unverified AI analysis.")
         failures = entry.get("research_failures") or []
         if failures:
             st.markdown("**Research diagnostics**")
             for failure in failures:
                 st.caption(f"{failure.get('player')}: {failure.get('error')}")
         if not entry.get("sources"):
-            st.caption("No web sources were returned. You can request a fresh report manually.")
+            st.caption("No web source metadata was returned. A manual refresh "
+                       "can retry, but each request may incur charges.")
 
 
 
@@ -1240,8 +1262,8 @@ def live_dashboard(active_page: str):
                     if cached:
                         render_scout_report(cached, top_five)
                     st.caption(
-                        "Research is optional. One click searches each of your Top 5 "
-                        "separately (up to five billable OpenAI web requests). "
+                        "Research is optional. One click researches each of your Top 5 "
+                        "separately (up to five web-search calls and five analysis calls). "
                         "No local usage caps; spending is controlled in your OpenAI account."
                     )
                     if st.button(

@@ -15,6 +15,9 @@ from roster import assign_lineup, chronological_roster, next_user_picks, top_fiv
 from ai import openai_configured, get_scout_access_code, scout_access_granted
 from draft_strategy import evaluate_pick_timing
 from recommend import role_counts
+from copilot import ask_copilot, context_snapshot, compare_question, MAX_FOLLOWUPS
+from evaluation import (record_snapshot, evaluate_snapshots, evaluation_summary,
+                        replay_adp_baseline, rows_as_csv)
 from opponent_draft import opponent_context_for_candidate
 from nba_teams import roster_breakdown, FRANCHISES
 from scout import (cache_entry, research_key, research_allowed, use_scout,
@@ -228,8 +231,16 @@ def normalize_rankings(df, players):
         rank = pd.to_numeric(df[cols["rank"]], errors="coerce")
         df["base"] = 1000 - rank
         df["metric_label"] = "Rank proxy (not points)"
-    for name in ("upside_fppg", "floor_fppg", "games_per_week", "availability_pct"):
+    # Standardized optional Lock-In inputs: per-game mean/floor/upside and
+    # availability. Stat means are scored with league settings when complete.
+    from lockin import STATS
+    for name in ("upside_fppg", "floor_fppg", "games_per_week",
+                 "availability_pct", "stdev_fppg", *STATS):
         df[name] = pd.to_numeric(df[cols[name]], errors="coerce") if name in cols else float("nan")
+    df["projected_fppg"] = (
+        pd.to_numeric(df[cols[stat_col]], errors="coerce")
+        if stat_col in ("projected_fppg", "fppg") else float("nan")
+    )
     return df[df.player_id.ne("") & df.base.notna()].drop_duplicates("player_id").copy()
 
 
@@ -575,10 +586,10 @@ def render_settings_form(league_id_hint: str = ""):
             st.file_uploader("Player rankings or projections CSV", type=["csv"], key="cfg_upload")
             st.download_button(
                 "Download Lock-In projection template",
-                data="player,projected_fppg,upside_fppg,floor_fppg,games_per_week,availability_pct\\n",
+                data="player,projected_fppg,upside_fppg,floor_fppg,stdev_fppg,games_per_week,availability_pct\\n",
                 file_name="lockin_projection_template.csv", mime="text/csv",
             )
-            st.caption("Optional columns: upside_fppg, floor_fppg, games_per_week, availability_pct.")
+            st.caption("For a calibrated-input Lock-In opportunity estimate, include projected_fppg, stdev_fppg (or floor/upside), games_per_week and availability_pct. Picky never invents missing values.")
     with st.container(border=True):
         st.markdown("### 3. Recommendation preferences")
         st.caption("Balanced (recommended): keep the current default weighting for upside, "
@@ -671,6 +682,7 @@ with st.sidebar:
         "board": ":material/view_module:",
         "players": ":material/bar_chart:",
         "reports": ":material/article:",
+        "lab": ":material/science:",
         "settings": ":material/settings:",
         "help": ":material/help_outline:",
     }
@@ -929,7 +941,67 @@ def live_dashboard(active_page: str):
         fit_bonus,
         adp_frame,
         teams or 12,
+        scoring_settings=league.get("scoring_settings") or {},
     )
+
+    if active_page == "lab":
+        render_page_header(
+            title="AI Lab",
+            subtitle="Measure draft decisions and test the ADP baseline using observed Sleeper selections.",
+            live=False,
+        )
+        st.info("Evaluation uses actual Sleeper picks, not fabricated player outcomes. "
+                "Live shortlist snapshots are saved only in this browser session. "
+                "Historical replay uses today's ADP and is a retrospective proxy, not an unbiased backtest.")
+        all_snapshots = st.session_state.get("picky_eval_snapshots", {})
+        snapshots = {key: value for key, value in all_snapshots.items()
+                     if value.get("draft_id") == str(draft_id)}
+        rows_eval = evaluate_snapshots(snapshots, picks)
+        summary = evaluation_summary(rows_eval)
+        q1, q2, q3, q4 = st.columns(4)
+        q1.metric("Outcomes assessed", summary["reviewed"])
+        q2.metric("Survived until next turn", summary["survived"])
+        q3.metric("Taken before next turn", summary["taken"])
+        q4.metric("Pending / unverified", summary["pending"] + summary["unverifiable"])
+        if rows_eval:
+            st.dataframe(pd.DataFrame(rows_eval), hide_index=True, use_container_width=True)
+            st.download_button(
+                "Export observed decisions CSV", data=rows_as_csv(rows_eval),
+                file_name="picky_observed_decisions.csv", mime="text/csv",
+                key="export_live_evaluation",
+            )
+        else:
+            st.caption("No on-clock shortlist snapshots recorded in this browser session yet. "
+                       "Keep Overview open during a draft turn to begin collecting decisions.")
+        st.markdown("### Retrospective ADP replay")
+        st.caption("Replays the current ADP order against picks already made in this draft. "
+                   "It cannot reconstruct historically available projections, news or Lock-In values.")
+        replay = replay_adp_baseline(
+            picks,
+            adp_frame.to_dict("records") if not adp_frame.empty else [],
+            teams,
+        )
+        if replay:
+            totals = evaluation_summary(replay)
+            st.write(
+                f"Reviewing {totals['reviewed']} resolved candidate-pick observations: "
+                f"{totals['survived']} survived to the next round, "
+                f"{totals['taken']} were selected earlier."
+            )
+            st.dataframe(pd.DataFrame(replay), hide_index=True, use_container_width=True)
+            st.download_button(
+                "Export retrospective replay CSV", data=rows_as_csv(replay),
+                file_name="picky_adp_replay.csv", mime="text/csv",
+                key="export_replay",
+            )
+        else:
+            st.caption("Retrospective replay becomes available after enough draft picks "
+                       "and with the Hashtag ADP source loaded.")
+        st.markdown("### Interpreting results")
+        st.caption("These checks measure shortlist availability, not whether the player "
+                   "would have scored more fantasy points. No price or paid AI requests "
+                   "are made to run these diagnostics.")
+        return
 
     if active_page == "team":
         render_page_header(
@@ -1043,6 +1115,12 @@ def live_dashboard(active_page: str):
                     players.get(str(candidate.get("player_id")), {}).get("search_rank")
                 )
             following_pick = upcoming[1] if len(upcoming) > 1 else None
+            if on_clock and following_pick and top_five:
+                record_snapshot(
+                    st.session_state, draft_id=draft_id,
+                    upcoming_pick=upcoming[0], following_pick=following_pick,
+                    current_pick=next_pick, candidates=top_five,
+                )
             # Sleeper reports current traded-pick ownership separately from
             # original snake order. Cache it briefly; do not guess if missing.
             traded_pick_data = None
@@ -1190,6 +1268,43 @@ def live_dashboard(active_page: str):
                     "A live response may use API credits. Research is not a guaranteed prediction."
                 )
 
+            # Show the actual concept recommendation card even before a paid
+            # AI request. Label it a ranking preview, not an AI-reviewed pick.
+            report_ready = False
+            if my_user_id and upcoming and st.session_state.get("scout_unlocked", False):
+                preview_key = turn_research_key(draft_id, my_user_id, upcoming[0])
+                report_ready = bool(cache_entry(st.session_state, preview_key))
+            if top_five and not report_ready:
+                featured = top_five[0]
+                featured_name = str(featured.get("player") or "Player")
+                featured_wait = evaluate_pick_timing(
+                    featured, current_pick=next_pick,
+                    following_pick=following_pick,
+                    open_slots=roster_state["open_slots"] if roster_state else [],
+                    opponent=opponent_by_player.get(featured_name),
+                )
+                with st.container(border=True, key="scout_recommended_preview"):
+                    st.html(
+                        '<div class="fx-recommend-banner">'
+                        '<span>✦ PICKY AI SCOUT</span>'
+                        '<strong>RANKING-BASED PREVIEW · NOT YET AI-RESEARCHED</strong>'
+                        '</div>'
+                    )
+                    st.markdown(f"### {escape_html(featured_name)}")
+                    st.caption(
+                        f'{featured.get("team") or "—"} · '
+                        f'{featured.get("position") or "Position unavailable"}'
+                    )
+                    st.write(featured.get("roster") or
+                             "Highest-ranked available candidate in Picky's current board.")
+                    k1, k2 = st.columns(2)
+                    k1.metric("Your following estimated pick", 
+                              f"#{following_pick}" if following_pick else "Unknown")
+                    k2.metric("Waiting risk", featured_wait["risk"].title())
+                    st.caption(featured_wait["reason"])
+                    st.caption("AI evidence and full research will appear when "
+                               "your active pick is researched. No API call was made for this preview.")
+
             # Clear fallback: always give useful explanations when AI is unavailable.
             st.markdown("#### Top 5 available options")
             if top_five:
@@ -1255,6 +1370,10 @@ def live_dashboard(active_page: str):
                                 metrics.append(f"ADP {float(adp):.1f}")
                             if search_rank is not None:
                                 metrics.append(f"Sleeper search #{search_rank}")
+                            if (candidate.get("lockin") or {}).get("available"):
+                                metrics.append(
+                                    f"Lock-In opportunity {candidate['lockin']['points']:.1f} pts"
+                                )
                             # Always prefer fresh deterministic eligible-depth advice
                             # over cached AI text that may describe a false vacancy.
                             reason = (candidate.get("roster") or player_ai.get("draft_fit")
@@ -1295,6 +1414,113 @@ def live_dashboard(active_page: str):
                     show_scout_player_details(*selected_detail)
                 st.caption("These five are selected by Picky's ranking engine. "
                            "AI insights appear after current-pick research completes.")
+
+        # Phase 3: show quantitative Lock-In value only with verified inputs.
+        if not is_complete:
+            if board.get("origin") == "projection":
+                with st.expander("Lock-In opportunity model · inputs and limitations"):
+                    st.caption(
+                        "An exploratory expected best-game model, not guaranteed "
+                        "locked fantasy points. The model uses your league's "
+                        "scoring settings when complete stat projections exist; "
+                        "otherwise your imported league-scored FPPG."
+                    )
+                    coverage = board.get("lockin_available", 0)
+                    total = len(board.get("rows") or [])
+                    st.write(f"Usable Lock-In distributions: {coverage} / {total} projected players.")
+                    st.write(
+                        "Ranking impact: " +
+                        ("Enabled — all compared players have distributions."
+                         if board.get("lockin_ranked") else
+                         "Not enabled — some players lack comparable distributions.")
+                    )
+                    lock_rows = [
+                        {"Player": player.get("player"),
+                         "Opportunity pts": player["lockin"]["points"],
+                         "Expected per-game": player["lockin"]["mean"],
+                         "Games/week": player["lockin"]["scheduled_games"],
+                         "Chance of zero games": player["lockin"]["no_game_prob"]}
+                        for player in (board.get("rows") or [])[:25]
+                        if (player.get("lockin") or {}).get("available")
+                    ]
+                    if lock_rows:
+                        st.dataframe(pd.DataFrame(lock_rows), hide_index=True,
+                                     use_container_width=True)
+                    else:
+                        st.caption("Upload an enriched projection CSV to enable the model.")
+            else:
+                st.caption("Lock-In points model inactive: ADP is draft-order "
+                           "information, not a projected weekly fantasy score.")
+
+            # Phase 4: paid follow-ups are manual, never part of auto-refresh.
+            if (top_five and my_user_id and upcoming and
+                    st.session_state.get("scout_unlocked", False) and
+                    openai_configured()):
+                with st.expander("Ask Picky · AI Copilot and player comparisons"):
+                    question_key = turn_research_key(
+                        draft_id, my_user_id, upcoming[0]
+                    )
+                    saved_report = cache_entry(st.session_state, question_key)
+                    context = context_snapshot(
+                        top_five,
+                        role_counts=role_counts(roster_ids, players),
+                        next_pick=next_pick,
+                        report=(saved_report or {}).get("report"),
+                    )
+                    history = st.session_state.get("picky_copilot_history", {}).get(
+                        question_key, []
+                    )
+                    attempts = st.session_state.get("picky_copilot_attempts", {}).get(question_key, 0)
+                    st.caption(
+                        f"{attempts} / {MAX_FOLLOWUPS} manual AI requests used "
+                        "for this turn. These responses reuse existing research, "
+                        "without another web search, but still consume model tokens."
+                    )
+                    options = [
+                        str(row.get("player")) for row in top_five if row.get("player")
+                    ]
+                    if len(options) >= 2:
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            first = st.selectbox("First candidate", options,
+                                                 key="copilot_compare_a")
+                        with c2:
+                            second = st.selectbox(
+                                "Second candidate", options,
+                                index=1, key="copilot_compare_b",
+                            )
+                        if st.button("Compare these players", key="copilot_compare_button",
+                                     disabled=attempts >= MAX_FOLLOWUPS):
+                            try:
+                                query = compare_question(first, second, context)
+                                ask_copilot(st.session_state, key=question_key,
+                                            context=context, question=query)
+                                st.rerun(scope="fragment")
+                            except Exception as exc:
+                                st.error(f"Comparison unavailable: {str(exc)[:180]}")
+                    question = st.text_area(
+                        "Ask about this pick",
+                        key="picky_copilot_question",
+                        placeholder="Why would I take another SG when C is thinner?",
+                        max_chars=500, height=80,
+                    )
+                    if st.button("Ask Picky", key="picky_ask_copilot",
+                                 disabled=attempts >= MAX_FOLLOWUPS or
+                                 len(question.strip()) < 3):
+                        try:
+                            ask_copilot(st.session_state, key=question_key,
+                                        context=context, question=question)
+                            st.rerun(scope="fragment")
+                        except Exception as exc:
+                            st.error(f"AI follow-up unavailable: {str(exc)[:180]}")
+                    for turn in reversed(history[-4:]):
+                        st.markdown("**You:** " + escape_html(turn["question"]))
+                        st.write(turn["answer"])
+                    if attempts >= MAX_FOLLOWUPS:
+                        st.warning("This turn has reached the Copilot follow-up limit.")
+            elif not is_complete:
+                st.caption("Unlock AI Scout with your passkey to enable optional "
+                           "follow-up questions and comparisons.")
 
         # 4. Recent draft selections and *actual* lowest ADP players.
         st.markdown("### Draft board & ADP leaders")
@@ -1552,7 +1778,7 @@ def live_dashboard(active_page: str):
                         st.caption(details)
 
 
-if page in ("overview", "team", "board", "players", "reports"):
+if page in ("overview", "team", "board", "players", "reports", "lab"):
     # Keyed page content remounts when navigation changes, enabling a brief
     # enter animation without altering the Sleeper data-refresh fragment.
     with st.container(key=f"view_{page}"):

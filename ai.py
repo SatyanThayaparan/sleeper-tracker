@@ -53,6 +53,7 @@ def chat_complete(
     *,
     model: str = "gpt-4o-mini",
     temperature: float = 0.4,
+    max_tokens: int = 650,
 ) -> str:
     """Send a chat completion and return the assistant text."""
     client = get_openai_client()
@@ -62,6 +63,8 @@ def chat_complete(
         model=model,
         messages=messages,
         temperature=temperature,
+        max_tokens=max_tokens,
+        store=False,
     )
     choice = response.choices[0].message.content if response.choices else ""
     return (choice or "").strip()

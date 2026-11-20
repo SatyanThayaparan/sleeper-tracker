@@ -100,5 +100,20 @@ class RendererTests(unittest.TestCase):
         self.assertTrue(fragments, "AI heading must use st.html not Markdown.")
 
 
+    def test_ai_player_name_and_metadata_render_in_one_html_block(self):
+        """Avoid the overlapping Streamlit markdown-title/caption regression."""
+        markup = SOURCE.read_text(encoding="utf-8")
+        start = markup.index("with summary_col:", markup.index('key=f"ai_candidate_{rank_no}"'))
+        end = markup.index("with action_col:", start)
+        snippet = markup[start:end]
+        self.assertNotIn("st.caption(", snippet)
+        self.assertNotIn("st.markdown(", snippet)
+        self.assertIn("st.html(", snippet)
+        for name in ("fx-scout-player-name", "fx-scout-meta",
+                     "fx-scout-one-liner", "fx-scout-bottom-line"):
+            self.assertIn(name, snippet)
+
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -66,16 +66,16 @@ class OpponentDraftTests(unittest.TestCase):
         result = opponent_need_summary(
             upcoming, self.picks, self.players,
             ["PG", "SG", "SF", "PF", "C"],
-            candidate_positions=["PG", "SG"],
+            candidate_positions=["SG"],
         )
-        # 20 drafted a C only, 30 drafted SG/SF, 40 has no players.
+        # 20 drafted only C, 30 already has SG/SF, 40 has no players.
         self.assertEqual(result["matching_teams"], 2)
         self.assertEqual(result["matching_picks"], 3)
         self.assertEqual(result["teams_picking"], 3)
 
     def test_player_context_includes_conservative_explanation(self):
         context = opponent_context_for_candidate(
-            {"position": "PG, SG"}, picks=self.picks,
+            {"position": "SG"}, picks=self.picks,
             draft=self.draft, players=self.players,
             slots=["PG", "SG", "SF", "PF", "C"],
             current_pick=4, following_pick=9, teams=4,

@@ -21,7 +21,7 @@ from evaluation import (record_snapshot, evaluate_snapshots, evaluation_summary,
 from opponent_draft import opponent_context_for_candidate
 from nba_teams import roster_breakdown, FRANCHISES
 from scout import (cache_entry, cached_report_matches, research_key,
-                   research_allowed, use_scout,
+                   research_allowed, recovery_allowed, use_scout,
                    turn_research_key, auto_research_due, record_auto_attempt,
                    MAX_PER_PICK, MAX_PER_SESSION, CACHE_TTL_SECONDS)
 from config import default_draft_url
@@ -1419,9 +1419,80 @@ def live_dashboard(active_page: str):
                                                         state="complete", expanded=False)
                                         st.rerun(scope="fragment")
                         else:
-                            st.caption("No further AI research requests remain in this browser "
-                                       "session or for this pick. The ranking-only recommendations "
-                                       "are still available.")
+                            used = st.session_state.get("ai_scout_call_counts", {}).get(turn_key, 0)
+                            session_used = st.session_state.get("ai_scout_session_calls", 0)
+                            st.warning(
+                                "AI research requests are exhausted, but no completed report "
+                                "is available for this Top 5. These remain ranking-based recommendations."
+                            )
+                            st.caption(
+                                f"Attempts for this pick: {used}/{MAX_PER_PICK} · "
+                                f"Browser session: {session_used}/{MAX_PER_SESSION}. "
+                                "Failed requests also count toward these limits."
+                            )
+                            if turn_key and recovery_allowed(st.session_state, turn_key):
+                                st.markdown("**One-time research recovery**")
+                                st.caption(
+                                    "You can authorize one additional paid request in this "
+                                    "browser session. It may use API credits even if it fails. "
+                                    "It will never run automatically or reset previous attempts."
+                                )
+                                confirmed = st.checkbox(
+                                    "I understand this extra request may incur OpenAI API charges",
+                                    key=f"scout_recovery_consent_{turn_key}",
+                                )
+                                if st.button(
+                                    "Run one-time AI research recovery",
+                                    icon=":material/travel_explore:",
+                                    type="primary",
+                                    key=f"scout_recovery_request_{turn_key}",
+                                    disabled=not confirmed,
+                                    use_container_width=True,
+                                ):
+                                    if on_clock:
+                                        record_auto_attempt(st.session_state, turn_key)
+                                    with st.status(
+                                        "Running one-time research recovery…",
+                                        expanded=True,
+                                    ) as progress:
+                                        try:
+                                            use_scout(
+                                                st.session_state, turn_key, top_five,
+                                                open_slots=roster_state["open_slots"],
+                                                recovery=True,
+                                                context={
+                                                    "upcoming_pick": upcoming[0] if upcoming else None,
+                                                    "following_pick": following_pick,
+                                                    "current_pick": next_pick,
+                                                    "league_teams": teams,
+                                                    "opponent_by_player": opponent_by_player,
+                                                    "roster_eligible_counts": role_counts(roster_ids, players),
+                                                },
+                                            )
+                                        except Exception as exc:
+                                            st.session_state.setdefault(
+                                                "ai_scout_turn_errors", {}
+                                            )[turn_key] = str(exc)[:500]
+                                            progress.update(
+                                                label="Recovery failed",
+                                                state="error", expanded=False,
+                                            )
+                                            st.error("Recovery did not complete: " + str(exc)[:300])
+                                        else:
+                                            st.session_state.get(
+                                                "ai_scout_turn_errors", {}
+                                            ).pop(turn_key, None)
+                                            progress.update(
+                                                label="Research report ready",
+                                                state="complete", expanded=False,
+                                            )
+                                            st.rerun(scope="fragment")
+                            elif turn_key:
+                                st.caption(
+                                    "The one-time recovery was already used in this "
+                                    "browser session. Check the research error above "
+                                    "and your OpenAI API quota."
+                                )
                 st.caption(
                     "AI Scout runs once automatically per turn after you unlock it. "
                     "A live response may use API credits. Research is not a guaranteed prediction."

@@ -228,8 +228,16 @@ def normalize_rankings(df, players):
         rank = pd.to_numeric(df[cols["rank"]], errors="coerce")
         df["base"] = 1000 - rank
         df["metric_label"] = "Rank proxy (not points)"
-    for name in ("upside_fppg", "floor_fppg", "games_per_week", "availability_pct"):
+    # Standardized optional Lock-In inputs: per-game mean/floor/upside and
+    # availability. Stat means are scored with league settings when complete.
+    from lockin import STATS
+    for name in ("upside_fppg", "floor_fppg", "games_per_week",
+                 "availability_pct", "stdev_fppg", *STATS):
         df[name] = pd.to_numeric(df[cols[name]], errors="coerce") if name in cols else float("nan")
+    df["projected_fppg"] = (
+        pd.to_numeric(df[cols[stat_col]], errors="coerce")
+        if stat_col in ("projected_fppg", "fppg") else float("nan")
+    )
     return df[df.player_id.ne("") & df.base.notna()].drop_duplicates("player_id").copy()
 
 

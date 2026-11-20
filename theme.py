@@ -1137,6 +1137,7 @@ div[data-testid="stDialog"] [role="dialog"] {
 }
 
 /* Picky AI Scout — highlighted recommendation and evidence-first decision cards. */
+[class*="st-key-scout_recommended_preview"] [data-testid="stVerticalBlockBorderWrapper"],
 [class*="st-key-scout_recommended"] [data-testid="stVerticalBlockBorderWrapper"] {
   border: 1px solid rgba(56,185,121,.68) !important;
   border-radius: 15px !important;

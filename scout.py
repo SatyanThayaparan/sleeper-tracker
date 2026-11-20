@@ -17,8 +17,6 @@ from expert_research import verified_expert_evidence, report_research_summary
 
 DEFAULT_MODEL = "gpt-4.1-mini"
 CACHE_TTL_SECONDS = 20 * 60
-MAX_PER_PICK = 3
-MAX_PER_SESSION = 12
 MAX_CANDIDATES = 5
 
 
@@ -92,21 +90,16 @@ def cached_report_matches(entry, candidates):
 
 
 def research_allowed(session, key):
-    """Local per-browser budget guard. Hard project budget needs platform controls."""
-    counts = session.get("ai_scout_call_counts", {})
-    return (counts.get(key, 0) < MAX_PER_PICK
-            and session.get("ai_scout_session_calls", 0) < MAX_PER_SESSION)
+    """User controls OpenAI spending with the explicit Research button.
+
+    Account-level budgets and quotas remain in the user's OpenAI account.
+    """
+    return bool(key)
 
 
 def recovery_allowed(session, key):
-    """Permit ONE extra explicitly confirmed paid recovery per browser session.
-
-    Automatic research never uses this permission. Do not reset counters:
-    the extra attempt is transparent and auditable in session state.
-    """
-    if not key or session.get("ai_scout_recovery_used", False):
-        return False
-    return not research_allowed(session, key)
+    """Legacy compatibility: the same manual button handles every retry."""
+    return bool(key)
 
 
 def safe_source_urls(response):
@@ -146,7 +139,7 @@ def safe_source_urls(response):
     return sources[:45]
 
 
-def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
+def _run_scout_batch(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
               model=DEFAULT_MODEL, client=None, context=None):
     """Call Responses + web search for a comparison; return text and cited URLs."""
     if not 1 <= len(candidates) <= MAX_CANDIDATES:
@@ -460,6 +453,96 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
     }
 
 
+
+def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
+              model=DEFAULT_MODEL, client=None, context=None):
+    """Research each shortlisted player, then assemble a complete comparison.
+
+    One *explicit* button action may cause up to five paid web-search requests,
+    one per player. Failed individual searches don't discard other reports.
+    We do not treat a player without independently cited evidence as researched.
+    """
+    if not 1 <= len(candidates) <= MAX_CANDIDATES:
+        raise ValueError("AI Scout needs between one and five candidates.")
+    if len(candidates) == 1:
+        return _run_scout_batch(
+            candidates, open_slots=open_slots, scoring_format=scoring_format,
+            model=model, client=client, context=context,
+        )
+    # We intentionally do not call the five-player prompt: a large JSON
+    # completion often returned just one player and no useful news.
+    all_players, all_sources, failures = [], [], []
+    seen_urls = set()
+    per_player = {}
+    for row in candidates:
+        name = str(row.get("player") or "")
+        try:
+            result = _run_scout_batch(
+                [row], open_slots=open_slots, scoring_format=scoring_format,
+                model=model, client=client, context=context,
+            )
+        except Exception as exc:
+            failures.append({"player": name, "error": str(exc)[:200]})
+            continue
+        per_player[name] = result
+        for player in (result.get("report") or {}).get("players", []):
+            if player.get("name") == name:
+                all_players.append(player)
+        for source in result.get("sources", []):
+            url = source.get("url")
+            if url and url not in seen_urls:
+                seen_urls.add(url)
+                all_sources.append(source)
+
+    if not all_players:
+        raise RuntimeError(
+            "No usable per-player scouting results were returned. "
+            "Check OpenAI web-search access and provider errors."
+        )
+    covered = {p.get("name") for p in all_players}
+    sourced = {p.get("name") for p in all_players
+               if p.get("verified_expert_evidence")}
+    # Rankings remain the truth by default; verified evidence can support
+    # but does not silently re-order the deterministic fantasy shortlist.
+    first_sourced = next((str(row.get("player")) for row in candidates
+                          if row.get("player") in sourced), None)
+    report = {
+        "recommended_player": first_sourced,
+        "headline": "External research for current draft options",
+        "why_this_pick": (
+            "Picky's highest-ranked candidate with cited outside research. "
+            "Consider the individual findings and league scoring before deciding."
+            if first_sourced else ""
+        ),
+        "confidence": "low" if not sourced else "medium",
+        "players": all_players,
+        "alternatives": [],
+        "cautions": [],
+        "research_summary": (
+            "Player-specific source research. Numerical fantasy draft rankings "
+            "remain based on Picky's projection/ADP logic."
+        ),
+    }
+    missing = [str(row.get("player")) for row in candidates
+               if row.get("player") not in covered]
+    return {
+        "report": report,
+        "research_quality": report_research_summary(report),
+        "sources": all_sources,
+        "model": model,
+        "timestamp": time.time(),
+        "covered_players": sorted(covered),
+        "missing_players": missing,
+        "partial_report": bool(missing),
+        "sourced_players": sorted(sourced),
+        "unsourced_players": [str(row.get("player")) for row in candidates
+                             if row.get("player") not in sourced],
+        "has_source_backed_research": bool(sourced),
+        "research_failures": failures,
+        "requests_made": len(candidates),
+    }
+
+
 def turn_research_key(draft_id, user_id, pick_number):
     """Stable per-turn key: shortlist reordering must not cause paid re-searches."""
     payload = json.dumps(
@@ -471,17 +554,8 @@ def turn_research_key(draft_id, user_id, pick_number):
 
 def auto_research_due(session, key, *, on_clock, unlocked, configured,
                       candidate_count, draft_active, candidates=None):
-    """Research at most once automatically per turn, only with explicit unlock."""
-    return bool(
-        on_clock and unlocked and configured and draft_active
-        and candidate_count > 0 and key
-        and key not in session.get("ai_scout_auto_attempted", set())
-        and (cache_entry(session, key) is None or (
-            candidates is not None and not cached_report_matches(
-                cache_entry(session, key), candidates
-            )))
-        and research_allowed(session, key)
-    )
+    """Research is manual-only: no charges on draft refresh."""
+    return False
 
 
 def record_auto_attempt(session, key):
@@ -491,14 +565,10 @@ def record_auto_attempt(session, key):
 
 def use_scout(session, key, candidates, *, open_slots, research_fn=run_scout,
               context=None, recovery=False):
-    """Record paid attempts before request; explicit recovery is capped once/session."""
-    if recovery:
-        if not recovery_allowed(session, key):
-            raise RuntimeError("The one-time AI Scout recovery request is unavailable.")
-        # Mark this before any network call, including provider failures.
-        session["ai_scout_recovery_used"] = True
-    elif not research_allowed(session, key):
-        raise RuntimeError("AI Scout request limit reached for this session or pick.")
+    """Only the deliberate UI button invokes paid research; no local caps."""
+    if not key:
+        raise ValueError("No active draft-turn research key.")
+    # Preserve historical counts for diagnostics only, never as spending limits.
     counts = session.setdefault("ai_scout_call_counts", {})
     counts[key] = counts.get(key, 0) + 1
     session["ai_scout_session_calls"] = session.get("ai_scout_session_calls", 0) + 1

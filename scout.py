@@ -12,6 +12,7 @@ import time
 from urllib.parse import urlparse
 
 from ai import get_openai_client
+from draft_strategy import timing_for_shortlist
 
 DEFAULT_MODEL = "gpt-4.1-mini"
 CACHE_TTL_SECONDS = 20 * 60
@@ -111,6 +112,12 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
             "league_team_count": (context or {}).get("league_teams"),
         },
         "candidates_in_picky_rank_order": _snapshot(candidates),
+        "draft_now_vs_wait": timing_for_shortlist(
+            candidates,
+            current_pick=(context or {}).get("current_pick"),
+            following_pick=(context or {}).get("following_pick"),
+            open_slots=open_slots,
+        ),
     }
     # The model researches the provided list; it cannot introduce candidates
     # or adjust the deterministic numerical ranking used by Picky.
@@ -133,9 +140,24 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
                         "draft_fit": {"type": "string"},
                         "why_now": {"type": "string"},
                         "evidence_date": {"type": "string"},
+                        "evidence": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "claim": {"type": "string"},
+                                    "source_title": {"type": "string"},
+                                    "source_url": {"type": "string"},
+                                    "reported_date": {"type": "string"},
+                                },
+                                "required": ["claim", "source_title", "source_url", "reported_date"],
+                                "additionalProperties": False,
+                            },
+                        },
                     },
                     "required": ["name", "role_outlook", "recent_findings",
-                                 "availability_risk", "draft_fit", "why_now", "evidence_date"],
+                                 "availability_risk", "draft_fit", "why_now", "evidence_date",
+                                 "evidence"],
                     "additionalProperties": False,
                 },
             },
@@ -174,6 +196,13 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
         "Never guarantee a player will be selected before the next round or "
         "give made-up selection probabilities. Use ADP versus the next pick "
         "only as a qualitative signal, and explain uncertainty. "
+        "The supplied draft_now_vs_wait entries are application-derived; "
+        "use their risk label and explanation without inventing percentages. "
+        "For each player, return up to two short evidence objects with the "
+        "actual article title, publication date, claim, and source URL. "
+        "Include an evidence item ONLY for a real report read through web search. "
+        "Never invent URLs or dates. If you cannot verify a report, return an "
+        "empty evidence list and explain the uncertainty. "
         "Do not modify numerical ranking scores or treat those values as "
         "fantasy point projections. Restrict yourself to the supplied candidates. "
         "Write a concise, plain-English report. The recommended_player MUST "
@@ -200,7 +229,7 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
             "strict": True,
             "schema": report_schema,
         }},
-        max_output_tokens=3100,
+        max_output_tokens=4300,
         store=False,
     )
     body = (getattr(response, "output_text", "") or "").strip()
@@ -217,6 +246,17 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
         raise RuntimeError("AI Scout returned an invalid player comparison.")
     report["players"] = [row for row in report["players"]
                          if isinstance(row, dict) and row.get("name") in allowed]
+    # Only display a claimed source as traceable evidence when its URL is among
+    # citations actually supplied by the Responses web-search tool.
+    actual_sources = safe_source_urls(response)
+    source_urls = {source["url"] for source in actual_sources}
+    for player in report["players"]:
+        incoming = player.get("evidence")
+        player["evidence"] = [
+            item for item in (incoming if isinstance(incoming, list) else [])[:3]
+            if isinstance(item, dict) and item.get("source_url") in source_urls
+            and item.get("claim") and item.get("source_title")
+        ][:2]
     covered = {row.get("name") for row in report["players"]}
     if covered != allowed:
         raise RuntimeError(
@@ -224,7 +264,7 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
         )
     return {
         "report": report,
-        "sources": safe_source_urls(response),
+        "sources": actual_sources,
         "model": model,
         "timestamp": time.time(),
     }

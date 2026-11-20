@@ -13,7 +13,7 @@ class ResearchVisibilityTests(unittest.TestCase):
         self.assertIn('use_scout(', source)
         self.assertNotIn('"Run one-time AI research recovery"', source)
         self.assertNotIn("AI research requests are exhausted", source)
-        self.assertIn('with st.expander("Expert research · sources, articles and diagnostics")', source)
+        self.assertIn('with st.expander("Expert research · sources and diagnostics")', source)
 
     def test_unresearched_details_are_labeled_as_ranking_only(self):
         source = (ROOT / "app.py").read_text(encoding="utf-8")

@@ -117,6 +117,7 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
             current_pick=(context or {}).get("current_pick"),
             following_pick=(context or {}).get("following_pick"),
             open_slots=open_slots,
+            opponent_by_player=(context or {}).get("opponent_by_player"),
         ),
     }
     # The model researches the provided list; it cannot introduce candidates
@@ -196,6 +197,11 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
         "Never guarantee a player will be selected before the next round or "
         "give made-up selection probabilities. Use ADP versus the next pick "
         "only as a qualitative signal, and explain uncertainty. "
+        "Read each opponent_context as a documented positional-needs signal, "
+        "not a prediction of another manager's choice. Explain whether "
+        "other managers have picks before the user's following selection "
+        "and still lack an eligible starter, if that information exists. "
+        "Do not infer intent or precise availability percentages. "
         "The supplied draft_now_vs_wait entries are application-derived; "
         "use their risk label and explanation without inventing percentages. "
         "For each player, return up to two short evidence objects with the "

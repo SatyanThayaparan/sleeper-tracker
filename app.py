@@ -20,7 +20,8 @@ from evaluation import (record_snapshot, evaluate_snapshots, evaluation_summary,
                         replay_adp_baseline, rows_as_csv)
 from opponent_draft import opponent_context_for_candidate
 from nba_teams import roster_breakdown, FRANCHISES
-from scout import (cache_entry, research_key, research_allowed, use_scout,
+from scout import (cache_entry, cached_report_matches, research_key,
+                   research_allowed, use_scout,
                    turn_research_key, auto_research_due, record_auto_attempt,
                    MAX_PER_SESSION, CACHE_TTL_SECONDS)
 from config import default_draft_url
@@ -488,6 +489,33 @@ def show_scout_player_details(candidate, player_ai, timing, source_list):
     st.caption("Recent findings")
     st.write(player_ai.get("recent_findings") or "No player-specific report verified yet.")
     evidence = player_ai.get("evidence") or []
+    verified = player_ai.get("verified_expert_evidence") or []
+    ranked_sources = [item for item in verified if item.get("kind") == "Expert rankings / cheat sheet"]
+    current_sources = [item for item in verified if item.get("kind") != "Expert rankings / cheat sheet"]
+    st.markdown("#### What fantasy experts say")
+    if ranked_sources:
+        for item in ranked_sources:
+            with st.container(border=True):
+                st.markdown(f"**{escape_html(item['publisher'])} · {escape_html(item['ranking_format'])}**")
+                st.write(item["claim"])
+                st.caption(f"{item['freshness']} · AI-reported date {item['reported_date']} · "
+                           "ESPN/Yahoo defaults may differ from Sleeper Lock-In.")
+                st.link_button("Read ranking or cheat sheet", item["source_url"])
+        if player_ai.get("expert_take"):
+            st.caption("AI synthesis (check links): " + str(player_ai["expert_take"]))
+    else:
+        st.info("No independently cited player-specific cheat sheet or expert ranking "
+                "was found for this candidate. A ranking list is not assumed to endorse them.")
+    st.markdown("#### Recent reports and player news")
+    if current_sources:
+        for item in current_sources:
+            with st.container(border=True):
+                st.markdown(f"**{escape_html(item['publisher'])} · {escape_html(item['kind'])}**")
+                st.write(item["claim"])
+                st.caption(f"{item['freshness']} · AI-reported date: {item['reported_date']}")
+                st.link_button("Open cited report", item["source_url"])
+    else:
+        st.caption("No separately cited current player-specific report available.")
     st.markdown("#### Supporting articles")
     if evidence:
         for proof in evidence:
@@ -539,6 +567,50 @@ def render_scout_report(entry, candidates):
                 + " · " + datetime.fromtimestamp(entry["timestamp"], timezone.utc)
                 .strftime("%b %d, %H:%M UTC")
             )
+    quality = entry.get("research_quality") or {}
+    if quality:
+        st.markdown("#### Expert research coverage")
+        a, b, c = st.columns(3)
+        a.metric("Players with cited sources", f"{quality.get('players_with_sources', 0)} / {len(candidates)}")
+        b.metric("Players with cheat sheet evidence", quality.get("players_with_rankings", 0))
+        c.metric("Citation-backed findings", quality.get("total_verified_links", 0))
+        st.caption("Links confirm which pages the AI used, not that every interpretation "
+                   "or AI-reported publication date is accurate. Older draft sheets are context, "
+                   "not a substitute for current injury and rotation news.")
+        for candidate in candidates:
+            name = str(candidate.get("player") or "")
+            player = next((p for p in report.get("players", [])
+                           if isinstance(p, dict) and p.get("name") == name), None)
+            if player is None:
+                continue
+            q = quality.get("by_player", {}).get(name) or {}
+            with st.expander(f"{name} · {q.get('ranking_sources', 0)} expert rankings · "
+                             f"{q.get('news_sources', 0)} reports"):
+                rankings = [item for item in (player.get("verified_expert_evidence") or [])
+                            if item.get("kind") == "Expert rankings / cheat sheet"]
+                news = [item for item in (player.get("verified_expert_evidence") or [])
+                        if item.get("kind") != "Expert rankings / cheat sheet"]
+                if rankings:
+                    st.markdown("**Expert rankings & cheat sheets**")
+                    for item in rankings:
+                        st.markdown(f"**{escape_html(item['publisher'])}** · "
+                                    f"{escape_html(item['ranking_format'])}")
+                        st.write(item["claim"])
+                        st.caption(f"{item['freshness']} · AI-reported date: {item['reported_date']}")
+                        st.link_button("Read expert source", item["source_url"])
+                else:
+                    st.caption("No player-specific expert cheat sheet entry independently cited.")
+                if news:
+                    st.markdown("**News and rotation reports**")
+                    for item in news:
+                        st.write(item["claim"])
+                        st.caption(f"{item['publisher']} · {item['freshness']} · "
+                                   f"AI-reported date: {item['reported_date']}")
+                        st.link_button("Read news source", item["source_url"])
+                else:
+                    st.caption("No verified current news citation for this player.")
+                if player.get("expert_take") and (rankings or news):
+                    st.caption("AI interpretation: " + str(player["expert_take"]))
     with st.expander("View detailed evidence, risks and research sources"):
         if report.get("alternatives"):
             st.markdown("**Alternatives**")
@@ -1178,9 +1250,50 @@ def live_dashboard(active_page: str):
                     if on_clock and turn_key:
                         st.markdown(":green[**You're on the clock — AI Scout is active.**]")
                     elif upcoming:
-                        st.info(f"Next AI research starts when pick #{upcoming[0]} is on the clock.")
+                        st.info(f"Auto-research starts at your pick #{upcoming[0]}. "
+                                "You can also run the expert report early below.")
                     else:
                         st.caption("Waiting for an upcoming pick in the Sleeper draft order.")
+
+                    # Pre-pick expert scouting is deliberately manual and paid,
+                    # shares the exact same turn cache as on-clock research,
+                    # and cannot be called repeatedly by Streamlit polling.
+                    if (turn_key and not on_clock
+                            and not cached_report_matches(
+                                cache_entry(st.session_state, turn_key), top_five
+                            )
+                            and research_allowed(st.session_state, turn_key)):
+                        st.caption("Optional: search ESPN/Yahoo fantasy cheat sheets, "
+                                   "NBA articles, injury updates and expert opinions "
+                                   "for your current Top 5 before your turn. "
+                                   "Uses OpenAI web-search credits once per click.")
+                        if st.button("Research expert reports now",
+                                     icon=":material/travel_explore:",
+                                     type="primary", key=f"expert_research_{turn_key}"):
+                            with st.status("Researching experts and NBA reports…",
+                                           expanded=True) as progress:
+                                try:
+                                    use_scout(
+                                        st.session_state, turn_key, top_five,
+                                        open_slots=roster_state["open_slots"],
+                                        context={
+                                            "upcoming_pick": upcoming[0],
+                                            "following_pick": following_pick,
+                                            "current_pick": next_pick,
+                                            "league_teams": teams,
+                                            "opponent_by_player": opponent_by_player,
+                                            "roster_eligible_counts": role_counts(roster_ids, players),
+                                        },
+                                    )
+                                except Exception as exc:
+                                    st.error("Expert report could not be completed: "
+                                             + str(exc)[:200])
+                                    progress.update(label="Research unavailable",
+                                                    state="error", expanded=False)
+                                else:
+                                    progress.update(label="Expert research complete",
+                                                    state="complete", expanded=False)
+                                    st.rerun(scope="fragment")
 
                     if auto_research_due(
                         st.session_state, turn_key,
@@ -1188,6 +1301,7 @@ def live_dashboard(active_page: str):
                         configured=openai_configured(),
                         candidate_count=len(top_five),
                         draft_active=draft_active,
+                        candidates=top_five,
                     ):
                         # Mark before doing network I/O to avoid repeated charges
                         # if Streamlit reruns while a request is underway.
@@ -1227,6 +1341,11 @@ def live_dashboard(active_page: str):
                                 )
 
                     cached = cache_entry(st.session_state, turn_key) if turn_key else None
+                    if cached and not cached_report_matches(cached, top_five):
+                        st.warning("Your Top 5 changed since the last expert research. "
+                                   "That report is outdated for this shortlist; "
+                                   "research can be refreshed on your turn.")
+                        cached = None
                     if cached:
                         render_scout_report(cached, top_five)
                     elif turn_key in st.session_state.get("ai_scout_turn_errors", {}):
@@ -1273,7 +1392,9 @@ def live_dashboard(active_page: str):
             report_ready = False
             if my_user_id and upcoming and st.session_state.get("scout_unlocked", False):
                 preview_key = turn_research_key(draft_id, my_user_id, upcoming[0])
-                report_ready = bool(cache_entry(st.session_state, preview_key))
+                report_ready = cached_report_matches(
+                    cache_entry(st.session_state, preview_key), top_five
+                )
             if top_five and not report_ready:
                 featured = top_five[0]
                 featured_name = str(featured.get("player") or "Player")
@@ -1314,6 +1435,8 @@ def live_dashboard(active_page: str):
                         st.session_state.get("scout_unlocked", False)):
                     current_key = turn_research_key(draft_id, my_user_id, upcoming[0])
                     current_entry = cache_entry(st.session_state, current_key)
+                    if not cached_report_matches(current_entry, top_five):
+                        current_entry = None
                     ai_report = (current_entry or {}).get("report")
                 # Some candidates may have been drafted since the report was generated.
                 # Never present a stale AI pick as still available.
@@ -1379,6 +1502,19 @@ def live_dashboard(active_page: str):
                             reason = (candidate.get("roster") or player_ai.get("draft_fit")
                                       or timing["position_note"])
                             extra = str(player_ai.get("why_now") or "").strip()
+                            verified_sources = player_ai.get("verified_expert_evidence") or []
+                            ranking_count = sum(
+                                entry.get("kind") == "Expert rankings / cheat sheet"
+                                for entry in verified_sources
+                            )
+                            news_count = len(verified_sources) - ranking_count
+                            expert_line = (
+                                f'Expert check: {ranking_count} cited ranking(s) · '
+                                f'{news_count} cited report(s)'
+                                if verified_sources else
+                                ('No verifiable expert sources for this player'
+                                 if ai_report else '')
+                            )
                             is_ai_pick = (
                                 player_name_text ==
                                 (ai_report or {}).get("recommended_player")
@@ -1402,7 +1538,11 @@ def live_dashboard(active_page: str):
                                 f'{escape_html(risk_label)}</span>'
                                 f'<span class="fx-scout-wait-explanation">'
                                 f'{escape_html((extra or timing["reason"])[:195])}</span>'
-                                '</div></div>'
+                                '</div>'
+                                + (f'<div class="fx-scout-expert-line">'
+                                   f'{escape_html(expert_line)}</div>'
+                                   if expert_line else '')
+                                + '</div>'
                             )
                         with action_col:
                             if st.button(

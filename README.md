@@ -106,6 +106,17 @@ When *complete* per-game stat projections are supplied for all applicable Sleepe
 
 The estimate is an optimistic *expected best available game* for a matchup week. Actual Sleeper Lock-In requires timely choices after real games and has fallback rules; the number is **not** a guarantee or a validated prediction of your lock decision. When every eligible projected player has comparable model inputs, Picky can incorporate opportunity into its score while preserving the existing injury, news and roster fit adjustments. With incomplete coverage, the ranking remains unchanged.
 
+### Expert reports and cheat-sheet research (Phase 1 enhancement)
+
+Once you unlock AI Scout with your access code, Picky can search the **current Top 5** for expert coverage including ESPN fantasy analysis, Yahoo fantasy draft kits and points-league rankings, NBA.com, RotoWire and other cited sports reports.
+
+- **Before your turn:** click **Research expert reports now** to request a paid research pass; the resulting report is cached for your upcoming selection.
+- **On your turn:** the existing authorized auto-scout runs once when there is not already a cached report. Existing research is reused rather than charged again.
+- **Research report:** see a featured recommendation, source-coverage counters, per-player expert cheat-sheet citations, recent injury/rotation stories, quoted (briefly paraphrased) conclusions, and a link to open each source. The same summary appears in player details.
+- **Sources:** only URL matches from the web-search provider's citation annotations are presented as independently cited evidence. Publication dates are **AI-reported, not independently verified from page metadata**; older articles are flagged and unknown dates remain unknown.
+- **Rankings:** expert lists are external context, not a replacement for your league's actual scoring settings or draft rank. ESPN/Yahoo points-league rankings do not necessarily value Sleeper Lock-In in the same way. Never infer a player's rank or expert endorsement just because a general draft kit exists.
+- **Cost:** clicking Research uses OpenAI API web search. No web request runs merely because you open Settings, scroll, or refresh the page; manual and automatic reports use the same per-turn budget and cache. Results are browser-session scoped.
+
 ### Ask Picky (Phase 4)
 
 On Overview, unlock AI Scout with the existing passkey and open **Ask Picky · AI Copilot**. Compare two available candidates or type a question. **Only clicking Ask/Compare incurs a new model request**; follow-ups reuse the existing Scout report (when available), have no new web-search tool, are limited to eight attempts per draft turn and are scoped to your current browser session. They can be wrong when relevant evidence is missing or stale.

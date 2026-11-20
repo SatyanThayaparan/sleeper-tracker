@@ -92,7 +92,7 @@ def safe_source_urls(response):
                 if url not in seen:
                     sources.append({"title": str(title)[:160], "url": url})
                     seen.add(url)
-    return sources[:12]
+    return sources[:25]
 
 
 def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
@@ -125,6 +125,16 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
             "league_team_count": (context or {}).get("league_teams"),
         },
         "candidates_in_picky_rank_order": _snapshot(candidates),
+        "expert_source_starting_points": [
+            {"publisher": "Yahoo Fantasy", "type": "season draft kit",
+             "url": "https://sports.yahoo.com/fantasy/article/2026-27-fantasy-basketball-draft-kit-strategy-rankings-analysis-everything-you-need-to-dominate-your-league-183354053.html"},
+            {"publisher": "NBA.com / Yahoo analyst", "type": "points-league rankings",
+             "url": "https://www.nba.com/news/nba-fantasy-top-250-points-league-rankings"},
+            {"publisher": "ESPN Fantasy Basketball", "type": "fantasy basketball portal",
+             "url": "https://www.espn.com/fantasy/basketball/"},
+        ],
+        # Links above are DISCOVERY starting points, not proof of an individual
+        # player's ranking. Per-player claims require cited article URLs.
         "draft_now_vs_wait": timing_for_shortlist(
             candidates,
             current_pick=(context or {}).get("current_pick"),
@@ -230,6 +240,9 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
         "up to THREE 'expert_rankings' entries giving source title, URL, "
         "date, ranking_format, and a specific source-supported claim. "
         "If inaccessible or unverified, return no expert ranking entries. "
+        "The provided expert_source_starting_points are leads only. "
+        "Only report player-specific rankings if the web tool actually "
+        "accesses a matching player mention and supplies a citation. "
         "Do NOT manufacture numerical ranks or expert consensus. "
         "Treat preseason cheat sheets as background: recent injury and "
         "rotation updates outrank stale draft rankings. State when "

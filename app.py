@@ -1472,7 +1472,6 @@ def live_dashboard(active_page: str):
                         try:
                             ask_copilot(st.session_state, key=question_key,
                                         context=context, question=question)
-                            st.session_state["picky_copilot_question"] = ""
                             st.rerun(scope="fragment")
                         except Exception as exc:
                             st.error(f"AI follow-up unavailable: {str(exc)[:180]}")

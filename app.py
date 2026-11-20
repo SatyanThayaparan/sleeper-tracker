@@ -13,6 +13,7 @@ from adp import ADP_URL, fetch_adp_rows, match_adp
 from recommend import build_recommendations
 from roster import assign_lineup, chronological_roster, next_user_picks, top_five_for_pick
 from ai import openai_configured, get_scout_access_code, scout_access_granted
+from draft_strategy import evaluate_pick_timing
 from scout import (cache_entry, research_key, research_allowed, use_scout,
                    turn_research_key, auto_research_due, record_auto_attempt,
                    MAX_PER_SESSION, CACHE_TTL_SECONDS)
@@ -403,15 +404,26 @@ def render_scout_report(entry, candidates):
         '✓ AI research complete — player insights are ready.'
         '</div>',
     )
-    with st.container(border=True):
-        st.caption("AI SCOUT · TOP RECOMMENDATION")
-        st.markdown(f"### {escape_html(str(report.get('recommended_player') or 'Unavailable'))}")
-        st.write(report.get("why_this_pick") or report.get("headline") or "No explanation available.")
-        st.caption(
-            "Research confidence: " + str(report.get("confidence") or "Unverified").title()
-            + " · " + datetime.fromtimestamp(entry["timestamp"], timezone.utc)
-            .strftime("%b %d, %H:%M UTC")
-        )
+    winner = str(report.get("recommended_player") or "Unavailable")
+    selected = next((p for p in candidates if p.get("player") == winner), None)
+    if selected is None:
+        st.warning("The AI's earlier recommendation is no longer in the available Top 5. "
+                   "Use the refreshed ranking list below; no extra paid request was made.")
+    else:
+        with st.container(border=True, key="scout_recommended"):
+            st.html(
+                '<div class="fx-recommend-banner">'
+                '<span>✦ PICKY AI SCOUT</span>'
+                '<strong>TOP RECOMMENDATION</strong></div>'
+            )
+            st.markdown(f"## {escape_html(winner)}")
+            st.write(report.get("why_this_pick") or report.get("headline")
+                     or "No explanation available.")
+            st.caption(
+                "Research confidence: " + str(report.get("confidence") or "Unverified").title()
+                + " · " + datetime.fromtimestamp(entry["timestamp"], timezone.utc)
+                .strftime("%b %d, %H:%M UTC")
+            )
     with st.expander("View detailed evidence, risks and research sources"):
         if report.get("alternatives"):
             st.markdown("**Alternatives**")
@@ -1051,6 +1063,13 @@ def live_dashboard(active_page: str):
                     current_key = turn_research_key(draft_id, my_user_id, upcoming[0])
                     current_entry = cache_entry(st.session_state, current_key)
                     ai_report = (current_entry or {}).get("report")
+                # Some candidates may have been drafted since the report was generated.
+                # Never present a stale AI pick as still available.
+                current_names = {p.get("player") for p in top_five}
+                if ai_report and ai_report.get("recommended_player") not in current_names:
+                    st.warning("The previous AI pick is no longer in your Top 5. "
+                               "Ranking suggestions below are current; AI news may be stale.")
+                    ai_report = None
                 ai_players = {
                     row.get("name"): row
                     for row in (ai_report or {}).get("players", [])
@@ -1077,44 +1096,62 @@ def live_dashboard(active_page: str):
                             metrics.append(f"Blended ADP {float(adp):.1f}")
                         if metrics:
                             st.caption(" · ".join(metrics))
+                        timing = evaluate_pick_timing(
+                            candidate,
+                            current_pick=next_pick,
+                            following_pick=following_pick,
+                            open_slots=roster_state["open_slots"] if roster_state else [],
+                        )
+                        risk_text = {
+                            "elevated": "ELEVATED WAIT RISK",
+                            "moderate": "MODERATE WAIT RISK",
+                            "lower": "LOWER WAIT RISK",
+                            "unknown": "WAIT RISK UNKNOWN",
+                        }[timing["risk"]]
                         st.html(
-                            '<span class="fx-scout-reason-label">Why consider this player?</span>'
+                            '<div class="fx-scout-signals">'
+                            f'<span class="fx-wait-badge fx-wait-{timing["risk"]}">'
+                            f'{risk_text}</span>'
+                            '<span class="fx-scout-reason-label">WHY THIS PICK</span>'
+                            '</div>'
                         )
                         st.write(
                             player_ai.get("draft_fit")
                             or candidate.get("roster")
-                            or "A leading available option in Picky's draft rankings."
+                            or timing["position_note"]
                         )
+                        st.caption(timing["reason"])
                         if player_ai:
                             st.write(
                                 player_ai.get("why_now")
-                                or player_ai.get("recent_findings")
-                                or "The current report has limited verifiable evidence."
+                                or "No additional AI draft-timing context is available."
                             )
-                            with st.expander("ESPN / Yahoo / NBA evidence and uncertainty"):
-                                st.write("**Reports:** " + str(
-                                    player_ai.get("recent_findings") or "No source-verified updates."
-                                ))
+                            evidence = player_ai.get("evidence") or []
+                            with st.expander(
+                                f"Scouting evidence & reports ({len(evidence)} verified links)"
+                            ):
+                                st.write("**NBA findings:** " + str(
+                                    player_ai.get("recent_findings")
+                                    or "No recent coverage verified."))
                                 st.write("**Role:** " + str(
-                                    player_ai.get("role_outlook") or "Unverified"
-                                ))
+                                    player_ai.get("role_outlook") or "Unverified"))
                                 st.write("**Injury:** " + str(
-                                    player_ai.get("availability_risk") or "Unverified"
-                                ))
-                                st.caption("Find article URLs in AI Scout's research sources above.")
-                        elif following_pick is not None and adp is not None:
-                            if float(adp) <= following_pick:
-                                st.caption(
-                                    f"ADP context: often selected before your next "
-                                    f"estimated turn (pick #{following_pick}). "
-                                    "Availability is not guaranteed."
-                                )
-                            else:
-                                st.caption(
-                                    f"ADP context: selection typically occurs later than "
-                                    f"your next turn (pick #{following_pick}), but other "
-                                    "managers may draft this player sooner."
-                                )
+                                    player_ai.get("availability_risk") or "Unverified"))
+                                if evidence:
+                                    for proof in evidence:
+                                        st.markdown("**Finding:** " + str(proof["claim"]))
+                                        st.caption("Reported: " + str(
+                                            proof.get("reported_date") or "Date unverified"))
+                                        st.link_button(
+                                            str(proof.get("source_title") or "Read source"),
+                                            proof["source_url"],
+                                        )
+                                else:
+                                    st.info("No player-specific web-search citation could "
+                                            "be verified. Treat news claims as unconfirmed.")
+                        else:
+                            st.caption("AI news insight will appear after an authorized "
+                                       "research request for your pick.")
                 st.caption("These five are selected by Picky's ranking engine. "
                            "AI insights appear after current-pick research completes.")
 

@@ -23,7 +23,7 @@ from nba_teams import roster_breakdown, FRANCHISES
 from scout import (cache_entry, cached_report_matches, research_key,
                    research_allowed, use_scout,
                    turn_research_key, auto_research_due, record_auto_attempt,
-                   MAX_PER_SESSION, CACHE_TTL_SECONDS)
+                   MAX_PER_PICK, MAX_PER_SESSION, CACHE_TTL_SECONDS)
 from config import default_draft_url
 from theme import (
     APP_NAME,

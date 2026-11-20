@@ -359,6 +359,7 @@ def auto_research_due(session, key, *, on_clock, unlocked, configured,
         on_clock and unlocked and configured and draft_active
         and candidate_count > 0 and key
         and key not in session.get("ai_scout_auto_attempted", set())
+        and cache_entry(session, key) is None
         and research_allowed(session, key)
     )
 

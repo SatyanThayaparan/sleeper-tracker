@@ -20,7 +20,8 @@ from evaluation import (record_snapshot, evaluate_snapshots, evaluation_summary,
                         replay_adp_baseline, rows_as_csv)
 from opponent_draft import opponent_context_for_candidate
 from nba_teams import roster_breakdown, FRANCHISES
-from scout import (cache_entry, research_key, research_allowed, use_scout,
+from scout import (cache_entry, cached_report_matches, research_key,
+                   research_allowed, use_scout,
                    turn_research_key, auto_research_due, record_auto_attempt,
                    MAX_PER_SESSION, CACHE_TTL_SECONDS)
 from config import default_draft_url
@@ -1258,7 +1259,9 @@ def live_dashboard(active_page: str):
                     # shares the exact same turn cache as on-clock research,
                     # and cannot be called repeatedly by Streamlit polling.
                     if (turn_key and not on_clock
-                            and cache_entry(st.session_state, turn_key) is None
+                            and not cached_report_matches(
+                                cache_entry(st.session_state, turn_key), top_five
+                            )
                             and research_allowed(st.session_state, turn_key)):
                         st.caption("Optional: search ESPN/Yahoo fantasy cheat sheets, "
                                    "NBA articles, injury updates and expert opinions "
@@ -1298,6 +1301,7 @@ def live_dashboard(active_page: str):
                         configured=openai_configured(),
                         candidate_count=len(top_five),
                         draft_active=draft_active,
+                        candidates=top_five,
                     ):
                         # Mark before doing network I/O to avoid repeated charges
                         # if Streamlit reruns while a request is underway.
@@ -1337,6 +1341,11 @@ def live_dashboard(active_page: str):
                                 )
 
                     cached = cache_entry(st.session_state, turn_key) if turn_key else None
+                    if cached and not cached_report_matches(cached, top_five):
+                        st.warning("Your Top 5 changed since the last expert research. "
+                                   "That report is outdated for this shortlist; "
+                                   "research can be refreshed on your turn.")
+                        cached = None
                     if cached:
                         render_scout_report(cached, top_five)
                     elif turn_key in st.session_state.get("ai_scout_turn_errors", {}):
@@ -1383,7 +1392,9 @@ def live_dashboard(active_page: str):
             report_ready = False
             if my_user_id and upcoming and st.session_state.get("scout_unlocked", False):
                 preview_key = turn_research_key(draft_id, my_user_id, upcoming[0])
-                report_ready = bool(cache_entry(st.session_state, preview_key))
+                report_ready = cached_report_matches(
+                    cache_entry(st.session_state, preview_key), top_five
+                )
             if top_five and not report_ready:
                 featured = top_five[0]
                 featured_name = str(featured.get("player") or "Player")
@@ -1424,6 +1435,8 @@ def live_dashboard(active_page: str):
                         st.session_state.get("scout_unlocked", False)):
                     current_key = turn_research_key(draft_id, my_user_id, upcoming[0])
                     current_entry = cache_entry(st.session_state, current_key)
+                    if not cached_report_matches(current_entry, top_five):
+                        current_entry = None
                     ai_report = (current_entry or {}).get("report")
                 # Some candidates may have been drafted since the report was generated.
                 # Never present a stale AI pick as still available.

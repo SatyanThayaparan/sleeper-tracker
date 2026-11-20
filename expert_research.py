@@ -35,7 +35,8 @@ def publisher(url):
 
 
 def classify_evidence(title, url, claim=""):
-    value = " ".join((str(title), str(url), str(claim))).lower()
+    # Classify using document metadata, never AI's unverified claim text.
+    value = " ".join((str(title), str(url))).lower()
     if any(term in value for term in RANKING_TERMS):
         return "Expert rankings / cheat sheet"
     if any(term in value for term in FANTASY_TERMS):

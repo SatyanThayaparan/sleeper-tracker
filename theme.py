@@ -859,6 +859,33 @@ section[data-testid="stSidebar"] [class*="st-key-nav_"] button:focus-visible {
   }
 }
 
+/* Picky AI Scout — highlighted recommendation and evidence-first decision cards. */
+[class*="st-key-scout_recommended"] [data-testid="stVerticalBlockBorderWrapper"] {
+  border: 1px solid rgba(56,185,121,.68) !important;
+  border-radius: 15px !important;
+  background: linear-gradient(125deg,rgba(29,78,55,.45),rgba(24,36,49,.76)) !important;
+  box-shadow:0 10px 30px rgba(8,30,21,.16);
+}
+.fx-recommend-banner { display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+  color:#77E4A8; font-size:11px; font-weight:800; letter-spacing:.08em;
+  text-transform:uppercase; margin:4px 0 6px; }
+.fx-recommend-banner span { border-radius:7px; padding:5px 9px;
+  color:#0B2418; background:#4CDB99; }
+.fx-scout-signals {display:flex;align-items:center;flex-wrap:wrap;
+  gap:12px;margin:10px 0 8px;}
+.fx-wait-badge {font-size:10px;font-weight:800;letter-spacing:.045em;
+  border:1px solid rgba(139,161,179,.4);border-radius:999px;padding:5px 9px;
+  color:#BDC8D9;background:rgba(103,118,142,.14);}
+.fx-wait-elevated {color:#FFD394;background:rgba(194,116,22,.16);border-color:rgba(217,149,63,.45)}
+.fx-wait-moderate {color:#EBD09A;background:rgba(160,134,51,.13);border-color:rgba(202,168,78,.3)}
+.fx-wait-lower {color:#87E5B3;background:rgba(29,130,82,.18);border-color:rgba(52,189,115,.37)}
+.fx-wait-unknown {color:#B8C5D5}
+@media (max-width: 760px) {
+ .fx-recommend-banner,.fx-scout-signals {gap:7px}
+ .fx-scout-heading {padding:12px}
+ .fx-scout-heading strong {font-size:16px}
+}
+
 /* AI Scout high-contrast research identity and candidate explanation cards. */
 .fx-scout-heading {
   display:flex; align-items:center; gap:13px;

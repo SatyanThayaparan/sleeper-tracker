@@ -1140,7 +1140,7 @@ def live_dashboard(active_page: str):
                         "lower": "Lower wait risk", "unknown": "Wait risk unknown",
                     }[timing["risk"]]
                     player_id = str(candidate.get("player_id") or "")
-                    photo = player_headshot_url(players.get(player_id, {}))
+                    photo = player_headshot_url(players.get(player_id, {}), player_id)
                     source_list = (current_entry or {}).get("sources") or []
                     with st.container(border=True, key=f"ai_candidate_{rank_no}"):
                         face_col, summary_col, action_col = st.columns(

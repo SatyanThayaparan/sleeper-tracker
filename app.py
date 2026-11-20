@@ -14,6 +14,7 @@ from recommend import build_recommendations
 from roster import assign_lineup, chronological_roster, next_user_picks, top_five_for_pick
 from ai import openai_configured, get_scout_access_code, scout_access_granted
 from draft_strategy import evaluate_pick_timing
+from recommend import role_counts
 from opponent_draft import opponent_context_for_candidate
 from nba_teams import roster_breakdown, FRANCHISES
 from scout import (cache_entry, research_key, research_allowed, use_scout,
@@ -459,7 +460,8 @@ def show_scout_player_details(candidate, player_ai, timing, source_list):
         f'Blended ADP: {candidate.get("blend_adp") if candidate.get("blend_adp") is not None else "—"}'
     )
     st.markdown("#### Why this player?")
-    st.write(player_ai.get("draft_fit") or candidate.get("roster") or timing["position_note"])
+    # The current deterministic roster view wins over any cached AI wording.
+    st.write(candidate.get("roster") or player_ai.get("draft_fit") or timing["position_note"])
     st.markdown("#### Draft now or wait?")
     st.write(timing["reason"])
     if player_ai.get("why_now"):
@@ -1128,6 +1130,7 @@ def live_dashboard(active_page: str):
                                         "current_pick": next_pick,
                                         "league_teams": teams,
                                         "opponent_by_player": opponent_by_player,
+                                        "roster_eligible_counts": role_counts(roster_ids, players),
                                     },
                                 )
                             except Exception as exc:
@@ -1170,6 +1173,7 @@ def live_dashboard(active_page: str):
                                                 "current_pick": next_pick,
                                                 "league_teams": teams,
                                                 "opponent_by_player": opponent_by_player,
+                                                "roster_eligible_counts": role_counts(roster_ids, players),
                                             },
                                         )
                                     except Exception as exc:
@@ -1251,7 +1255,9 @@ def live_dashboard(active_page: str):
                                 metrics.append(f"ADP {float(adp):.1f}")
                             if search_rank is not None:
                                 metrics.append(f"Sleeper search #{search_rank}")
-                            reason = (player_ai.get("draft_fit") or candidate.get("roster")
+                            # Always prefer fresh deterministic eligible-depth advice
+                            # over cached AI text that may describe a false vacancy.
+                            reason = (candidate.get("roster") or player_ai.get("draft_fit")
                                       or timing["position_note"])
                             extra = str(player_ai.get("why_now") or "").strip()
                             is_ai_pick = (

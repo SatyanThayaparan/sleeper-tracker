@@ -159,6 +159,24 @@ class ExpertScoutContractTests(unittest.TestCase):
         self.assertEqual(fake.request["tools"][0]["type"], "web_search")
         self.assertTrue(fake.request["store"] is False)
 
+        # One player gets a usable report, the other has no individual
+        # findings. Keep the paid result without manufacturing coverage.
+        partial = run_scout(
+            [
+                {"player": "Example Guard", "position": "PG, SG",
+                 "score": 40, "roster": "Guard depth"},
+                {"player": "Unresearched Center", "position": "C",
+                 "score": 38, "roster": "Thin center depth"},
+            ],
+            open_slots=["C"], client=SimpleNamespace(responses=fake),
+        )
+        self.assertTrue(partial["partial_report"])
+        self.assertEqual(partial["covered_players"], ["Example Guard"])
+        self.assertEqual(partial["missing_players"], ["Unresearched Center"])
+        self.assertEqual(len(partial["report"]["players"]), 1)
+        self.assertEqual(partial["report"]["recommended_player"], "Example Guard")
+
+
 
 if __name__ == "__main__":
     unittest.main()

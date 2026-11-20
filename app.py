@@ -15,7 +15,7 @@ from roster import assign_lineup, chronological_roster, next_user_picks, top_fiv
 from ai import openai_configured, get_scout_access_code, scout_access_granted
 from draft_strategy import evaluate_pick_timing
 from recommend import role_counts
-from copilot import ask_copilot, context_snapshot, compare_question, MAX_FOLLOWUPS
+from copilot import ask_copilot, context_snapshot, compare_question
 from evaluation import (record_snapshot, evaluate_snapshots, evaluation_summary,
                         replay_adp_baseline, rows_as_csv)
 from opponent_draft import opponent_context_for_candidate
@@ -551,128 +551,74 @@ def show_scout_player_details(candidate, player_ai, timing, source_list):
 
 
 def render_scout_report(entry, candidates):
-    """Compact completion and recommendation; individual insight cards below."""
-    report = entry.get("report")
+    """Keep Overview decisive; source and failure diagnostics stay on demand."""
+    report = entry.get("report") or {}
     if not isinstance(report, dict):
-        with st.expander("Previous AI report"):
-            st.markdown(entry.get("text") or "No report available.")
+        st.caption("AI returned no readable comparison. Your rankings remain available.")
         return
-    incomplete = bool(entry.get("partial_report"))
-    missing = entry.get("missing_players") or []
-    source_backed = bool(entry.get("has_source_backed_research",
-                                   (entry.get("research_quality") or {}).get("total_verified_links", 0) > 0))
-    if not source_backed:
-        st.error("No source-backed NBA or fantasy expert findings were retrieved. "
-                 "OpenAI returned an assessment, but it has no verified source URLs. "
-                 "Picky will not present it as a researched pick; "
-                 "continue using the ranking-based Top 5.")
-    elif entry.get("unsourced_players"):
-        st.info("Some players have only uncited AI observations. "
-                "Their ranking and roster-fit data remain available, "
-                "but external reporting was not verified for them.")
-    if incomplete:
-        st.warning(
-            f"Partial AI research: {len(candidates) - len(missing)} of "
-            f"{len(candidates)} players have individual findings. "
-            "No AI analysis was invented for the others."
-        )
-        st.caption("Not individually researched: " + ", ".join(missing))
-    elif source_backed:
-        st.html(
-            '<div class="fx-scout-finished" role="status">'
-            '✓ Source-backed AI research is ready.'
-            '</div>',
-        )
-    winner = str(report.get("recommended_player") or "")
-    selected = next((p for p in candidates if p.get("player") == winner), None)
-    if selected is None:
-        if incomplete:
-            st.info("No source-supported AI recommendation is available for the "
-                    "current Top 5. Continue using Picky's ranking-based top option "
-                    "until an individual scouting report supports a pick.")
-        else:
-            st.warning("The AI's earlier recommendation is no longer in the available Top 5. "
-                       "Use the refreshed ranking list below; no extra paid request was made.")
+    players = {p.get("name"): p for p in report.get("players", [])
+               if isinstance(p, dict)}
+    sourced = set(entry.get("sourced_players") or [])
+    reviewed = len(players)
+    source_count = (entry.get("research_quality") or {}).get("total_verified_links", 0)
+
+    if sourced:
+        leader = next((p for p in candidates if p.get("player") in sourced), None)
+        if leader:
+            name = str(leader.get("player"))
+            item = players.get(name) or {}
+            with st.container(border=True, key="scout_recommended"):
+                st.html(
+                    '<div class="fx-recommend-banner">'
+                    '<span>✦ PICKY AI SCOUT</span>'
+                    '<strong>EXPERT RESEARCH AVAILABLE</strong></div>'
+                )
+                st.markdown(f"### {escape_html(name)}")
+                st.write(leader.get("roster") or "Highest-ranked option with sourced coverage.")
+                st.caption(
+                    f"{len(sourced)} of {len(candidates)} players have linked findings · "
+                    f"{source_count} citation-backed sources · "
+                    "Ranking remains based on Picky's fantasy-points logic."
+                )
     else:
-        with st.container(border=True, key="scout_recommended"):
-            st.html(
-                '<div class="fx-recommend-banner">'
-                '<span>✦ PICKY AI SCOUT</span>'
-                '<strong>TOP RECOMMENDATION</strong></div>'
-            )
-            st.markdown(f"## {escape_html(winner)}")
-            st.write(report.get("why_this_pick") or report.get("headline")
-                     or "No explanation available.")
-            st.caption(
-                "Research confidence: " + str(report.get("confidence") or "Unverified").title()
-                + " · " + datetime.fromtimestamp(entry["timestamp"], timezone.utc)
-                .strftime("%b %d, %H:%M UTC")
-            )
-    quality = entry.get("research_quality") or {}
-    if quality:
-        st.markdown("#### Expert research coverage")
-        a, b, c = st.columns(3)
-        a.metric("Players with cited sources", f"{quality.get('players_with_sources', 0)} / {len(candidates)}")
-        b.metric("Players with cheat sheet evidence", quality.get("players_with_rankings", 0))
-        c.metric("Citation-backed findings", quality.get("total_verified_links", 0))
-        st.caption("Links confirm which pages the AI used, not that every interpretation "
-                   "or AI-reported publication date is accurate. Older draft sheets are context, "
-                   "not a substitute for current injury and rotation news.")
+        st.caption("No independently cited findings in this result. "
+                   "Your ranking-based recommendations remain unchanged.")
+
+    with st.expander("Expert research · sources, articles and diagnostics"):
+        st.caption(
+            f"{reviewed}/{len(candidates)} player summaries · "
+            f"{len(sourced)}/{len(candidates)} with cited reports · "
+            f"{source_count} source links. "
+            "A linked source is not independent confirmation of an AI interpretation."
+        )
         for candidate in candidates:
             name = str(candidate.get("player") or "")
-            player = next((p for p in report.get("players", [])
-                           if isinstance(p, dict) and p.get("name") == name), None)
-            if player is None:
-                st.caption(f"{name}: No individual AI report was returned. "
-                           "Picky's original ranking still applies.")
-                continue
-            q = quality.get("by_player", {}).get(name) or {}
-            with st.expander(f"{name} · {q.get('ranking_sources', 0)} expert rankings · "
-                             f"{q.get('news_sources', 0)} reports"):
-                rankings = [item for item in (player.get("verified_expert_evidence") or [])
-                            if item.get("kind") == "Expert rankings / cheat sheet"]
-                news = [item for item in (player.get("verified_expert_evidence") or [])
-                        if item.get("kind") != "Expert rankings / cheat sheet"]
-                if rankings:
-                    st.markdown("**Expert rankings & cheat sheets**")
-                    for item in rankings:
-                        st.markdown(f"**{escape_html(item['publisher'])}** · "
-                                    f"{escape_html(item['ranking_format'])}")
-                        st.write(item["claim"])
-                        st.caption(f"{item['freshness']} · AI-reported date: {item['reported_date']}")
-                        st.link_button("Read expert source", item["source_url"])
+            player = players.get(name)
+            with st.expander(name):
+                if not player:
+                    st.caption("No individual response returned for this player.")
+                    continue
+                if name not in sourced:
+                    st.caption("No attributed reporting returned; this is not an expert endorsement.")
                 else:
-                    st.caption("No player-specific expert cheat sheet entry independently cited.")
-                if news:
-                    st.markdown("**News and rotation reports**")
-                    for item in news:
-                        st.write(item["claim"])
-                        st.caption(f"{item['publisher']} · {item['freshness']} · "
-                                   f"AI-reported date: {item['reported_date']}")
-                        st.link_button("Read news source", item["source_url"])
-                else:
-                    st.caption("No verified current news citation for this player.")
-                if player.get("expert_take") and (rankings or news):
-                    st.caption("AI interpretation: " + str(player["expert_take"]))
-    with st.expander("View detailed evidence, risks and research sources"):
-        if report.get("alternatives"):
-            st.markdown("**Alternatives**")
-            for point in report["alternatives"]:
-                st.write("• " + str(point))
-        if report.get("cautions"):
-            st.markdown("**Risks & evidence gaps**")
-            for point in report["cautions"]:
-                st.write("• " + str(point))
-        st.caption(report.get("research_summary") or "")
-        st.markdown("**Source articles**")
-        if entry.get("sources"):
-            for source in entry["sources"]:
-                st.link_button(str(source.get("title") or "Read report"),
-                               source["url"], use_container_width=False)
-        else:
-            st.warning("No verifiable source links were returned; independently check any claims.")
-    st.caption("AI analysis is advisory. Below, reviewed players show research "
-               "findings while any missing players retain ranking-only guidance.")
+                    st.write(player.get("recent_findings") or "No recent finding summarized.")
+                    if player.get("expert_take"):
+                        st.write(player["expert_take"])
+                for item in (player.get("verified_expert_evidence") or []):
+                    st.markdown(
+                        f"**{escape_html(str(item.get('publisher') or 'Article'))}** "
+                        f"· {escape_html(str(item.get('kind') or 'Report'))}"
+                    )
+                    st.write(item.get("claim") or "")
+                    st.caption(str(item.get("freshness") or "Date unknown"))
+                    st.link_button("Read source", item["source_url"])
+        failures = entry.get("research_failures") or []
+        if failures:
+            st.markdown("**Research diagnostics**")
+            for failure in failures:
+                st.caption(f"{failure.get('player')}: {failure.get('error')}")
+        if not entry.get("sources"):
+            st.caption("No web sources were returned. You can request a fresh report manually.")
 
 
 
@@ -1272,96 +1218,47 @@ def live_dashboard(active_page: str):
             else:
                 if not st.session_state.get("scout_unlocked", False):
                     code = st.text_input(
-                        "Unlock automated AI Scout", type="password",
+                        "AI Scout access code", type="password",
                         key="scout_access_input",
-                        help="After unlocking, Picky researches the next Top 5 once "
-                             "when you are on the clock. OpenAI charges may apply.",
+                        help="Unlock manually triggered player research. "
+                             "No research runs automatically.",
                     )
                     if code and scout_access_granted(code):
                         st.session_state.scout_unlocked = True
-                        st.success("AI Scout unlocked for this browser session.")
+                        st.rerun(scope="fragment")
                     else:
-                        st.caption("Enter your passkey once to enable automatic on-turn research.")
-                unlocked = bool(st.session_state.get("scout_unlocked", False))
-                if unlocked:
-                    st.caption("Scout unlocked · Automatically researches your Top 5 "
-                               "when Sleeper shows it's your turn.")
-                    # Keep identity stable for an entire turn: minor rank changes
-                    # cannot restart billable research.
+                        st.caption("Unlock AI Scout to research your current players.")
+                if st.session_state.get("scout_unlocked", False):
                     next_owned_pick = upcoming[0] if upcoming else None
-                    turn_key = (turn_research_key(draft_id, my_user_id, next_owned_pick)
-                                if next_owned_pick is not None else None)
-                    if on_clock and turn_key:
-                        st.markdown(":green[**You're on the clock — AI Scout is active.**]")
-                    elif upcoming:
-                        st.info(f"Auto-research starts at your pick #{upcoming[0]}. "
-                                "You can also run the expert report early below.")
-                    else:
-                        st.caption("Waiting for an upcoming pick in the Sleeper draft order.")
-
-                    # Pre-pick expert scouting is deliberately manual and paid,
-                    # shares the exact same turn cache as on-clock research,
-                    # and cannot be called repeatedly by Streamlit polling.
-                    if (turn_key and not on_clock
-                            and not cached_report_matches(
-                                cache_entry(st.session_state, turn_key), top_five
-                            )
-                            and research_allowed(st.session_state, turn_key)):
-                        st.caption("Optional: search ESPN/Yahoo fantasy cheat sheets, "
-                                   "NBA articles, injury updates and expert opinions "
-                                   "for your current Top 5 before your turn. "
-                                   "Uses OpenAI web-search credits once per click.")
-                        if st.button("Research expert reports now",
-                                     icon=":material/travel_explore:",
-                                     type="primary", key=f"expert_research_{turn_key}"):
-                            with st.status("Researching experts and NBA reports…",
-                                           expanded=True) as progress:
-                                try:
-                                    use_scout(
-                                        st.session_state, turn_key, top_five,
-                                        open_slots=roster_state["open_slots"],
-                                        context={
-                                            "upcoming_pick": upcoming[0],
-                                            "following_pick": following_pick,
-                                            "current_pick": next_pick,
-                                            "league_teams": teams,
-                                            "opponent_by_player": opponent_by_player,
-                                            "roster_eligible_counts": role_counts(roster_ids, players),
-                                        },
-                                    )
-                                except Exception as exc:
-                                    st.error("Expert report could not be completed: "
-                                             + str(exc)[:200])
-                                    progress.update(label="Research unavailable",
-                                                    state="error", expanded=False)
-                                else:
-                                    progress.update(label="Expert research complete",
-                                                    state="complete", expanded=False)
-                                    st.rerun(scope="fragment")
-
-                    if auto_research_due(
-                        st.session_state, turn_key,
-                        on_clock=on_clock, unlocked=unlocked,
-                        configured=openai_configured(),
-                        candidate_count=len(top_five),
-                        draft_active=draft_active,
-                        candidates=top_five,
+                    turn_key = (
+                        turn_research_key(draft_id, my_user_id, next_owned_pick)
+                        if next_owned_pick is not None else None
+                    )
+                    cached = cache_entry(st.session_state, turn_key) if turn_key else None
+                    if cached and not cached_report_matches(cached, top_five):
+                        cached = None
+                    if cached:
+                        render_scout_report(cached, top_five)
+                    st.caption(
+                        "Research is optional. One click searches each of your Top 5 "
+                        "separately (up to five billable OpenAI web requests). "
+                        "No local usage caps; spending is controlled in your OpenAI account."
+                    )
+                    if st.button(
+                        "Research Top 5 with AI" if not cached else "Refresh AI research",
+                        type="primary", icon=":material/travel_explore:",
+                        disabled=not bool(turn_key and top_five),
+                        key="run_manual_ai_scout",
+                        use_container_width=True,
                     ):
-                        # Mark before doing network I/O to avoid repeated charges
-                        # if Streamlit reruns while a request is underway.
-                        record_auto_attempt(st.session_state, turn_key)
-                        with st.status(
-                            "AI Scout is researching your current pick…",
-                            state="running", expanded=True,
-                        ) as progress:
-                            st.write("Checking NBA news, injuries, roles and playing-time reports.")
-                            st.write("Comparing the five available players with your roster needs.")
+                        with st.status("Researching each player and collecting sources…",
+                                       expanded=True) as progress:
                             try:
                                 use_scout(
                                     st.session_state, turn_key, top_five,
                                     open_slots=roster_state["open_slots"],
                                     context={
-                                        "upcoming_pick": upcoming[0] if upcoming else None,
+                                        "upcoming_pick": next_owned_pick,
                                         "following_pick": following_pick,
                                         "current_pick": next_pick,
                                         "league_teams": teams,
@@ -1370,211 +1267,29 @@ def live_dashboard(active_page: str):
                                     },
                                 )
                             except Exception as exc:
-                                st.session_state.setdefault("ai_scout_turn_errors", {})[turn_key] = (
-                                    str(exc)[:220]
-                                )
+                                st.session_state.setdefault(
+                                    "ai_scout_turn_errors", {}
+                                )[turn_key] = str(exc)[:500]
                                 progress.update(
-                                    label="Research needs attention", state="error",
-                                    expanded=False,
+                                    label="Research request incomplete",
+                                    state="error", expanded=False,
                                 )
+                                st.error("AI research failed: " + str(exc)[:300])
                             else:
-                                st.session_state.get("ai_scout_turn_errors", {}).pop(turn_key, None)
+                                st.session_state.get(
+                                    "ai_scout_turn_errors", {}
+                                ).pop(turn_key, None)
                                 progress.update(
-                                    label="AI research complete", state="complete",
-                                    expanded=False,
+                                    label="AI research response saved",
+                                    state="complete", expanded=False,
                                 )
-
-                    cached = cache_entry(st.session_state, turn_key) if turn_key else None
-                    if cached and not cached_report_matches(cached, top_five):
-                        st.warning("Your Top 5 changed since the last expert research. "
-                                   "That report is outdated for this shortlist; "
-                                   "research can be refreshed on your turn.")
-                        cached = None
-                    if cached:
-                        render_scout_report(cached, top_five)
-                        if (not cached.get("has_source_backed_research",
-                                           bool((cached.get("research_quality") or {}).get(
-                                               "total_verified_links")))
-                                and research_allowed(st.session_state, turn_key)):
-                            st.caption("The previous paid request returned no retrieved "
-                                       "player-specific sources. You may try once more "
-                                       "manually, but the next request also costs API credits.")
-                            consent = st.checkbox(
-                                "I authorize another paid web research request",
-                                key=f"scout_uncited_consent_{turn_key}",
-                            )
-                            if st.button(
-                                "Retry research with source retrieval",
-                                type="primary", disabled=not consent,
-                                key=f"scout_uncited_retry_{turn_key}",
-                            ):
-                                with st.status("Retrieving NBA and fantasy sources…",
-                                               expanded=True) as progress:
-                                    try:
-                                        use_scout(
-                                            st.session_state, turn_key, top_five,
-                                            open_slots=roster_state["open_slots"],
-                                            context={
-                                                "upcoming_pick": upcoming[0] if upcoming else None,
-                                                "following_pick": following_pick,
-                                                "current_pick": next_pick,
-                                                "league_teams": teams,
-                                                "opponent_by_player": opponent_by_player,
-                                                "roster_eligible_counts": role_counts(roster_ids, players),
-                                            },
-                                        )
-                                    except Exception as exc:
-                                        st.session_state.setdefault(
-                                            "ai_scout_turn_errors", {}
-                                        )[turn_key] = str(exc)[:500]
-                                        progress.update(label="Source retry failed",
-                                                        state="error", expanded=False)
-                                        st.error("Source retrieval failed: " + str(exc)[:300])
-                                    else:
-                                        progress.update(label="Research response saved",
-                                                        state="complete", expanded=False)
-                                        st.rerun(scope="fragment")
-                    else:
-                        failed = turn_key in st.session_state.get("ai_scout_turn_errors", {})
-                        if failed:
-                            st.error("AI research failed for this pick. No report was saved.")
-                            with st.expander("Research error and recovery information"):
-                                st.code(st.session_state["ai_scout_turn_errors"][turn_key])
-                                st.caption("Review your OpenAI API quota, web-search availability "
-                                           "and Streamlit logs. A manual retry may incur API charges.")
-                        elif on_clock and turn_key in st.session_state.get("ai_scout_auto_attempted", set()):
-                            st.warning("AI Scout attempted research, but no completed report is "
-                                       "available for the current five players.")
-                        else:
-                            st.info("No completed AI research has been run for this Top 5. "
-                                    "The player cards below are ranking-only previews.")
-
-                        if turn_key and research_allowed(st.session_state, turn_key):
-                            used = st.session_state.get("ai_scout_call_counts", {}).get(turn_key, 0)
-                            st.caption(
-                                f"AI research requests this pick: {used}/{MAX_PER_PICK}. "
-                                "Research uses paid OpenAI web-search/model credits. "
-                                "It does not run until you click."
-                            )
-                            if st.button(
-                                "Run AI research now" if not failed else "Retry AI research",
-                                icon=":material/travel_explore:",
-                                type="primary",
-                                key=f"scout_manual_request_{turn_key}",
-                                use_container_width=True,
-                            ):
-                                # If on the clock, the manual request is the one
-                                # authorized attempt for this refresh cycle.
-                                if on_clock:
-                                    record_auto_attempt(st.session_state, turn_key)
-                                with st.status("Researching NBA and fantasy expert reports…",
-                                               expanded=True) as progress:
-                                    try:
-                                        use_scout(
-                                            st.session_state, turn_key, top_five,
-                                            open_slots=roster_state["open_slots"],
-                                            context={
-                                                "upcoming_pick": upcoming[0] if upcoming else None,
-                                                "following_pick": following_pick,
-                                                "current_pick": next_pick,
-                                                "league_teams": teams,
-                                                "opponent_by_player": opponent_by_player,
-                                                "roster_eligible_counts": role_counts(roster_ids, players),
-                                            },
-                                        )
-                                    except Exception as exc:
-                                        st.session_state.setdefault("ai_scout_turn_errors", {})[turn_key] = (
-                                            str(exc)[:500]
-                                        )
-                                        progress.update(label="Research failed — see error above",
-                                                        state="error", expanded=False)
-                                        st.error("AI research did not complete: " + str(exc)[:300])
-                                    else:
-                                        st.session_state.get("ai_scout_turn_errors", {}).pop(turn_key, None)
-                                        progress.update(label="Report ready",
-                                                        state="complete", expanded=False)
-                                        st.rerun(scope="fragment")
-                        else:
-                            used = st.session_state.get("ai_scout_call_counts", {}).get(turn_key, 0)
-                            session_used = st.session_state.get("ai_scout_session_calls", 0)
-                            st.warning(
-                                "AI research requests are exhausted, but no completed report "
-                                "is available for this Top 5. These remain ranking-based recommendations."
-                            )
-                            st.caption(
-                                f"Attempts for this pick: {used}/{MAX_PER_PICK} · "
-                                f"Browser session: {session_used}/{MAX_PER_SESSION}. "
-                                "Failed requests also count toward these limits."
-                            )
-                            if turn_key and recovery_allowed(st.session_state, turn_key):
-                                st.markdown("**One-time research recovery**")
-                                st.caption(
-                                    "You can authorize one additional paid request in this "
-                                    "browser session. It may use API credits even if it fails. "
-                                    "It will never run automatically or reset previous attempts."
-                                )
-                                confirmed = st.checkbox(
-                                    "I understand this extra request may incur OpenAI API charges",
-                                    key=f"scout_recovery_consent_{turn_key}",
-                                )
-                                if st.button(
-                                    "Run one-time AI research recovery",
-                                    icon=":material/travel_explore:",
-                                    type="primary",
-                                    key=f"scout_recovery_request_{turn_key}",
-                                    disabled=not confirmed,
-                                    use_container_width=True,
-                                ):
-                                    if on_clock:
-                                        record_auto_attempt(st.session_state, turn_key)
-                                    with st.status(
-                                        "Running one-time research recovery…",
-                                        expanded=True,
-                                    ) as progress:
-                                        try:
-                                            use_scout(
-                                                st.session_state, turn_key, top_five,
-                                                open_slots=roster_state["open_slots"],
-                                                recovery=True,
-                                                context={
-                                                    "upcoming_pick": upcoming[0] if upcoming else None,
-                                                    "following_pick": following_pick,
-                                                    "current_pick": next_pick,
-                                                    "league_teams": teams,
-                                                    "opponent_by_player": opponent_by_player,
-                                                    "roster_eligible_counts": role_counts(roster_ids, players),
-                                                },
-                                            )
-                                        except Exception as exc:
-                                            st.session_state.setdefault(
-                                                "ai_scout_turn_errors", {}
-                                            )[turn_key] = str(exc)[:500]
-                                            progress.update(
-                                                label="Recovery failed",
-                                                state="error", expanded=False,
-                                            )
-                                            st.error("Recovery did not complete: " + str(exc)[:300])
-                                        else:
-                                            st.session_state.get(
-                                                "ai_scout_turn_errors", {}
-                                            ).pop(turn_key, None)
-                                            progress.update(
-                                                label="Research report ready",
-                                                state="complete", expanded=False,
-                                            )
-                                            st.rerun(scope="fragment")
-                            elif turn_key:
-                                st.caption(
-                                    "The one-time recovery was already used in this "
-                                    "browser session. Check the research error above "
-                                    "and your OpenAI API quota."
-                                )
-                st.caption(
-                    "AI Scout runs once automatically per turn after you unlock it. "
-                    "A live response may use API credits. Research is not a guaranteed prediction."
-                )
-
+                                st.rerun(scope="fragment")
+                    error = st.session_state.get("ai_scout_turn_errors", {}).get(turn_key)
+                    if error:
+                        with st.expander("Research error details"):
+                            st.code(error)
             # Show the actual concept recommendation card even before a paid
+ even before a paid
             # AI request. Label it a ranking preview, not an AI-reviewed pick.
             report_ready = False
             if my_user_id and upcoming and st.session_state.get("scout_unlocked", False):
@@ -1797,12 +1512,8 @@ def live_dashboard(active_page: str):
                     history = st.session_state.get("picky_copilot_history", {}).get(
                         question_key, []
                     )
-                    attempts = st.session_state.get("picky_copilot_attempts", {}).get(question_key, 0)
-                    st.caption(
-                        f"{attempts} / {MAX_FOLLOWUPS} manual AI requests used "
-                        "for this turn. These responses reuse existing research, "
-                        "without another web search, but still consume model tokens."
-                    )
+                    st.caption("Questions only run when clicked, using cached research "
+                               "without another web search. Model tokens are billed.")
                     options = [
                         str(row.get("player")) for row in top_five if row.get("player")
                     ]
@@ -1816,8 +1527,7 @@ def live_dashboard(active_page: str):
                                 "Second candidate", options,
                                 index=1, key="copilot_compare_b",
                             )
-                        if st.button("Compare these players", key="copilot_compare_button",
-                                     disabled=attempts >= MAX_FOLLOWUPS):
+                        if st.button("Compare these players", key="copilot_compare_button"):
                             try:
                                 query = compare_question(first, second, context)
                                 ask_copilot(st.session_state, key=question_key,
@@ -1832,8 +1542,7 @@ def live_dashboard(active_page: str):
                         max_chars=500, height=80,
                     )
                     if st.button("Ask Picky", key="picky_ask_copilot",
-                                 disabled=attempts >= MAX_FOLLOWUPS or
-                                 len(question.strip()) < 3):
+                                 disabled=len(question.strip()) < 3):
                         try:
                             ask_copilot(st.session_state, key=question_key,
                                         context=context, question=question)
@@ -1843,8 +1552,6 @@ def live_dashboard(active_page: str):
                     for turn in reversed(history[-4:]):
                         st.markdown("**You:** " + escape_html(turn["question"]))
                         st.write(turn["answer"])
-                    if attempts >= MAX_FOLLOWUPS:
-                        st.warning("This turn has reached the Copilot follow-up limit.")
             elif not is_complete:
                 st.caption("Unlock AI Scout with your passkey to enable optional "
                            "follow-up questions and comparisons.")

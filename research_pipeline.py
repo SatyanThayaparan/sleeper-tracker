@@ -11,7 +11,7 @@ true. Claims only get a linked source after the source ID was provided by stage 
 from __future__ import annotations
 
 import json
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
 from expert_research import verified_expert_evidence, player_research_summary
 
@@ -37,15 +37,22 @@ def normalized_source_url(url):
                 host in ("localhost", "127.0.0.1", "::1")):
             return ""
         path = parts.path.rstrip("/") or "/"
-        # A different hostname/path is never considered a matching article.
-        return urlunsplit(("https", host.removeprefix("www."), path, "", ""))
+        # Preserve content-identifying query keys, discard only tracking keys.
+        # ?id=123 and ?id=456 must not match just because the path does.
+        query = urlencode(sorted(
+            (key, value) for key, value in parse_qsl(
+                parts.query, keep_blank_values=True
+            ) if not (key.lower().startswith("utm_") or key.lower() in
+                      ("fbclid", "gclid", "ref", "source", "mc_cid", "mc_eid"))
+        ))
+        return urlunsplit(("https", host.removeprefix("www."), path, query, ""))
     except ValueError:
         return ""
 
 
 def extract_search_sources(response):
     """Read web_search action.sources and message url_citation annotations."""
-    result, seen = [], set()
+    result, seen = [], {}
     for item in read_field(response, "output", []) or []:
         action = read_field(item, "action")
         candidates = []
@@ -56,14 +63,19 @@ def extract_search_sources(response):
         for source in candidates:
             raw = read_field(source, "url")
             key = normalized_source_url(raw)
-            if not key or key in seen:
+            if not key:
                 continue
-            seen.add(key)
+            title = str(read_field(source, "title") or "Retrieved web page")[:180]
+            if key in seen:
+                existing = result[seen[key]]
+                if (existing["title"] == "Retrieved web page"
+                        and title != "Retrieved web page"):
+                    existing["title"] = title
+                continue
+            seen[key] = len(result)
             result.append({
                 "id": "S" + str(len(result) + 1),
-                "url": str(raw),
-                "title": str(read_field(source, "title") or
-                             "Retrieved web page")[:180],
+                "url": str(raw), "title": title,
             })
     return result[:MAX_SOURCE_ITEMS]
 

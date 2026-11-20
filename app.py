@@ -23,7 +23,7 @@ from nba_teams import roster_breakdown, FRANCHISES
 from scout import (cache_entry, cached_report_matches, research_key,
                    research_allowed, recovery_allowed, use_scout,
                    turn_research_key, auto_research_due, record_auto_attempt,
-                   MAX_PER_PICK, MAX_PER_SESSION, CACHE_TTL_SECONDS)
+                   CACHE_TTL_SECONDS)
 from config import default_draft_url
 from theme import (
     APP_NAME,
@@ -1288,8 +1288,7 @@ def live_dashboard(active_page: str):
                     if error:
                         with st.expander("Research error details"):
                             st.code(error)
-            # Show the actual concept recommendation card even before a paid
- even before a paid
+            # Show the actual concept recommendation card before research.
             # AI request. Label it a ranking preview, not an AI-reviewed pick.
             report_ready = False
             if my_user_id and upcoming and st.session_state.get("scout_unlocked", False):
@@ -1325,8 +1324,7 @@ def live_dashboard(active_page: str):
                               f"#{following_pick}" if following_pick else "Unknown")
                     k2.metric("Waiting risk", featured_wait["risk"].title())
                     st.caption(featured_wait["reason"])
-                    st.caption("AI evidence and full research will appear when "
-                               "your active pick is researched. No API call was made for this preview.")
+                    st.caption("Ranking preview. Choose Research Top 5 with AI for expert sources.")
 
             # Clear fallback: always give useful explanations when AI is unavailable.
             st.markdown("#### Top 5 available options")

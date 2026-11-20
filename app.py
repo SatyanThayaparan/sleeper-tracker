@@ -552,16 +552,31 @@ def render_scout_report(entry, candidates):
         with st.expander("Previous AI report"):
             st.markdown(entry.get("text") or "No report available.")
         return
-    st.html(
-        '<div class="fx-scout-finished" role="status">'
-        '✓ AI research complete — player insights are ready.'
-        '</div>',
-    )
-    winner = str(report.get("recommended_player") or "Unavailable")
+    incomplete = bool(entry.get("partial_report"))
+    missing = entry.get("missing_players") or []
+    if incomplete:
+        st.warning(
+            f"Partial AI research: {len(candidates) - len(missing)} of "
+            f"{len(candidates)} players have individual findings. "
+            "No AI analysis was invented for the others."
+        )
+        st.caption("Not individually researched: " + ", ".join(missing))
+    else:
+        st.html(
+            '<div class="fx-scout-finished" role="status">'
+            '✓ AI research complete — player insights are ready.'
+            '</div>',
+        )
+    winner = str(report.get("recommended_player") or "")
     selected = next((p for p in candidates if p.get("player") == winner), None)
     if selected is None:
-        st.warning("The AI's earlier recommendation is no longer in the available Top 5. "
-                   "Use the refreshed ranking list below; no extra paid request was made.")
+        if incomplete:
+            st.info("No source-supported AI recommendation is available for the "
+                    "current Top 5. Continue using Picky's ranking-based top option "
+                    "until an individual scouting report supports a pick.")
+        else:
+            st.warning("The AI's earlier recommendation is no longer in the available Top 5. "
+                       "Use the refreshed ranking list below; no extra paid request was made.")
     else:
         with st.container(border=True, key="scout_recommended"):
             st.html(
@@ -592,6 +607,8 @@ def render_scout_report(entry, candidates):
             player = next((p for p in report.get("players", [])
                            if isinstance(p, dict) and p.get("name") == name), None)
             if player is None:
+                st.caption(f"{name}: No individual AI report was returned. "
+                           "Picky's original ranking still applies.")
                 continue
             q = quality.get("by_player", {}).get(name) or {}
             with st.expander(f"{name} · {q.get('ranking_sources', 0)} expert rankings · "
@@ -638,7 +655,8 @@ def render_scout_report(entry, candidates):
                                source["url"], use_container_width=False)
         else:
             st.warning("No verifiable source links were returned; independently check any claims.")
-    st.caption("AI analysis is advisory. Your five candidate summaries are shown below.")
+    st.caption("AI analysis is advisory. Below, reviewed players show research "
+               "findings while any missing players retain ranking-only guidance.")
 
 
 

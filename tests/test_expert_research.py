@@ -80,7 +80,7 @@ class ExpertEvidenceTests(unittest.TestCase):
         ))
         changed = [{"player": "Forward"}, {"player": "Center"}]
         self.assertFalse(cached_report_matches(stored, changed))
-        self.assertTrue(auto_research_due(
+        self.assertFalse(auto_research_due(
             session, key, on_clock=True, unlocked=True, configured=True,
             candidate_count=2, draft_active=True, candidates=changed,
         ))
@@ -100,6 +100,56 @@ class ExpertEvidenceTests(unittest.TestCase):
             session, key, on_clock=True, unlocked=True, configured=True,
             candidate_count=1, draft_active=True
         ))
+
+
+class IndividualResearchTests(unittest.TestCase):
+    def test_full_shortlist_uses_five_individual_searches(self):
+        from unittest.mock import patch
+        five = [
+            {"player": f"Player {n}", "position": "PG", "score": 40 - n}
+            for n in range(5)
+        ]
+        calls = []
+        def fake_batch(candidates, **kwargs):
+            self.assertEqual(len(candidates), 1)
+            name = candidates[0]["player"]
+            calls.append(name)
+            return {
+                "report": {
+                    "players": [{"name": name, "recent_findings": "Source found",
+                                 "verified_expert_evidence": [{
+                                     "kind": "Fantasy analysis",
+                                     "source_url": f"https://nba.com/{name.replace(' ', '-')}",
+                                     "publisher": "NBA.com", "claim": "Fantasy report",
+                                     "freshness": "Recent", "age_days": 1
+                                 }]}],
+                },
+                "sources": [{
+                    "url": f"https://nba.com/{name.replace(' ', '-')}",
+                    "title": "Report"
+                }],
+            }
+        with patch("scout._run_scout_batch", side_effect=fake_batch):
+            report = run_scout(five, open_slots=["PG"])
+        self.assertEqual(len(calls), 5)
+        self.assertEqual(len(report["report"]["players"]), 5)
+        self.assertFalse(report["partial_report"])
+        self.assertEqual(report["research_quality"]["players_with_sources"], 5)
+
+    def test_one_failed_player_does_not_erase_other_four(self):
+        from unittest.mock import patch
+        five = [{"player": f"P{n}", "position": "C"} for n in range(5)]
+        def fake_batch(candidates, **kwargs):
+            name = candidates[0]["player"]
+            if name == "P2":
+                raise RuntimeError("Web search temporarily unavailable")
+            return {"report": {"players": [{"name": name,
+                    "verified_expert_evidence": []}]}, "sources": []}
+        with patch("scout._run_scout_batch", side_effect=fake_batch):
+            result = run_scout(five, open_slots=[])
+        self.assertEqual(len(result["report"]["players"]), 4)
+        self.assertEqual(result["missing_players"], ["P2"])
+        self.assertEqual(len(result["research_failures"]), 1)
 
 
 class ExpertScoutContractTests(unittest.TestCase):

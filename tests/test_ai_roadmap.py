@@ -1,7 +1,7 @@
 """No-network coverage for Lock-In scoring, AI follow-ups, and draft evaluation."""
 import unittest
 
-from copilot import (MAX_FOLLOWUPS, ask_copilot, compare_question,
+from copilot import (ask_copilot, compare_question,
                      context_snapshot)
 from evaluation import (evaluate_snapshots, evaluation_summary,
                         record_snapshot, replay_adp_baseline, rows_as_csv)
@@ -148,20 +148,21 @@ class CopilotTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             compare_question("Center", "Unknown", self.context)
 
-    def test_failed_api_requests_count_toward_budget(self):
+    def test_failed_api_requests_are_counted_but_not_limited(self):
         session = {}
         def failed(*args, **kwargs):
             raise RuntimeError("Provider down")
-        for i in range(MAX_FOLLOWUPS):
+        for i in range(12):
             with self.assertRaises(RuntimeError):
                 ask_copilot(session, key="turn-1", context=self.context,
                              question="Should I draft the center?",
                              completion_fn=failed)
-        self.assertEqual(session["picky_copilot_attempts"]["turn-1"],
-                         MAX_FOLLOWUPS)
-        with self.assertRaisesRegex(RuntimeError, "limit"):
-            ask_copilot(session, key="turn-1", context=self.context,
-                         question="And now?", completion_fn=failed)
+        self.assertEqual(session["picky_copilot_attempts"]["turn-1"], 12)
+        answer = ask_copilot(
+            session, key="turn-1", context=self.context,
+            question="And now?", completion_fn=lambda *args, **kwargs: "New answer"
+        )
+        self.assertEqual(answer, "New answer")
 
 
 class EvaluationTests(unittest.TestCase):

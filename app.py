@@ -460,7 +460,8 @@ def show_scout_player_details(candidate, player_ai, timing, source_list):
         f'Blended ADP: {candidate.get("blend_adp") if candidate.get("blend_adp") is not None else "—"}'
     )
     st.markdown("#### Why this player?")
-    st.write(player_ai.get("draft_fit") or candidate.get("roster") or timing["position_note"])
+    # The current deterministic roster view wins over any cached AI wording.
+    st.write(candidate.get("roster") or player_ai.get("draft_fit") or timing["position_note"])
     st.markdown("#### Draft now or wait?")
     st.write(timing["reason"])
     if player_ai.get("why_now"):
@@ -1254,7 +1255,9 @@ def live_dashboard(active_page: str):
                                 metrics.append(f"ADP {float(adp):.1f}")
                             if search_rank is not None:
                                 metrics.append(f"Sleeper search #{search_rank}")
-                            reason = (player_ai.get("draft_fit") or candidate.get("roster")
+                            # Always prefer fresh deterministic eligible-depth advice
+                            # over cached AI text that may describe a false vacancy.
+                            reason = (candidate.get("roster") or player_ai.get("draft_fit")
                                       or timing["position_note"])
                             extra = str(player_ai.get("why_now") or "").strip()
                             is_ai_pick = (

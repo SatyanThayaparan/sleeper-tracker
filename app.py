@@ -13,7 +13,8 @@ from adp import ADP_URL, fetch_adp_rows, match_adp
 from recommend import build_recommendations
 from roster import assign_lineup, chronological_roster, next_user_picks, top_five_for_pick
 from ai import openai_configured, get_scout_access_code, scout_access_granted
-from draft_strategy import evaluate_pick_timing, player_headshot_url
+from draft_strategy import evaluate_pick_timing
+from nba_teams import roster_breakdown, FRANCHISES
 from scout import (cache_entry, research_key, research_allowed, use_scout,
                    turn_research_key, auto_research_due, record_auto_attempt,
                    MAX_PER_SESSION, CACHE_TTL_SECONDS)
@@ -390,6 +391,56 @@ def render_roster_grid(roster_state, players, picks):
         '</section></div>',
     )
 
+
+
+
+
+def render_team_breakdown(roster_ids, players, roster_state):
+    """Separately show core five coverage and each rostered NBA team's geography."""
+    snapshot = roster_breakdown(roster_ids, players, roster_state)
+    covered = snapshot["covered_count"]
+    positions = "".join(
+        f'<span class="fx-team-pos {"fx-team-pos-filled" if filled else "fx-team-pos-open"}">'
+        f'{escape_html(position)} <small>{"✓" if filled else "—"}</small></span>'
+        for position, filled in snapshot["coverage"].items()
+    )
+    teams = "".join(
+        f'<span class="fx-team-chip" title="{escape_html(FRANCHISES.get(code, code), quote=True)}">'
+        f'{escape_html(code)} <small>×{count}</small></span>'
+        for code, count in sorted(snapshot["teams"].items())
+    ) or '<span class="fx-team-empty">No NBA teams represented yet</span>'
+    conferences = "".join(
+        f'<div class="fx-team-stat"><strong>{escape_html(name)}</strong>'
+        f'<span>{count} player{"s" if count != 1 else ""}</span></div>'
+        for name, count in (("Eastern", snapshot["conferences"].get("Eastern", 0)),
+                            ("Western", snapshot["conferences"].get("Western", 0)))
+    )
+    divisions = "".join(
+        f'<span class="fx-team-division">{escape_html(name)} '
+        f'<b>{count}</b></span>'
+        for name, count in sorted(snapshot["divisions"].items()) if count
+    ) or '<span class="fx-team-empty">No divisions represented yet</span>'
+    unknown = snapshot["unknown"]
+    st.html(
+        '<div class="fx-team-breakdown">'
+        '<section class="fx-team-panel">'
+        '<span class="fx-team-eyebrow">Starting five covered</span>'
+        f'<strong class="fx-team-coverage">{covered}<small> / 5</small></strong>'
+        f'<div class="fx-team-position-list">{positions}</div>'
+        '<small class="fx-team-footnote">PG, SG, SF, PF, C only · based on assigned roster slots</small>'
+        '</section>'
+        '<section class="fx-team-panel">'
+        '<span class="fx-team-eyebrow">NBA teams represented</span>'
+        f'<strong class="fx-team-coverage">{len(snapshot["teams"])}<small> / 30</small></strong>'
+        f'<div class="fx-team-position-list">{teams}</div>'
+        f'<small class="fx-team-footnote">{unknown} player(s) have no known NBA team</small>'
+        '</section>'
+        '<section class="fx-team-panel fx-team-panel-wide">'
+        '<span class="fx-team-eyebrow">Conferences & divisions</span>'
+        f'<div class="fx-team-conferences">{conferences}</div>'
+        f'<div class="fx-team-position-list">{divisions}</div>'
+        '</section></div>'
+    )
 
 
 
@@ -893,6 +944,8 @@ def live_dashboard(active_page: str):
         st.markdown("### My roster")
         st.caption("Earlier picks fill eligible slots first; the right column holds utility and bench selections.")
         render_roster_grid(roster_state, players, picks)
+        st.markdown("#### Roster coverage & NBA distribution")
+        render_team_breakdown(roster_ids, players, roster_state)
         st.caption("Roster placement is an illustration of draft order, not your submitted Sleeper lineup.")
         st.markdown("### Your remaining needs")
         if roster_state["open_slots"]:
@@ -951,6 +1004,8 @@ def live_dashboard(active_page: str):
                 f"· {len(roster_ids)} drafted"
             )
             render_roster_grid(roster_state, players, picks)
+            st.markdown("#### Roster coverage & NBA distribution")
+            render_team_breakdown(roster_ids, players, roster_state)
             if roster_state["open_slots"]:
                 st.markdown(
                     '<div class="fx-pick-needs">'
@@ -1140,38 +1195,45 @@ def live_dashboard(active_page: str):
                         "lower": "Lower wait risk", "unknown": "Wait risk unknown",
                     }[timing["risk"]]
                     player_id = str(candidate.get("player_id") or "")
-                    photo = player_headshot_url(players.get(player_id, {}), player_id)
                     source_list = (current_entry or {}).get("sources") or []
+                    # Render a reliable initials badge rather than a broken image.
+                    initials = "".join(part[:1].upper() for part in
+                                       player_name_text.split()[:2]) or "🏀"
+                    meta = players.get(player_id, {})
+                    nba_team = str(candidate.get("team") or meta.get("team") or "Free agent")
+                    eligible = meta.get("fantasy_positions") or []
+                    eligibility = ", ".join(str(p) for p in eligible) or str(
+                        candidate.get("position") or "Position unknown"
+                    )
                     with st.container(border=True, key=f"ai_candidate_{rank_no}"):
                         face_col, summary_col, action_col = st.columns(
-                            [0.5, 5, 1.2], vertical_alignment="center", gap="small"
+                            [0.68, 5, 1.18], vertical_alignment="center", gap="small"
                         )
                         with face_col:
-                            if photo:
-                                st.html(
-                                    '<img class="fx-scout-photo" alt="NBA player headshot" '
-                                    'loading="lazy" decoding="async" '
-                                    f'src="{escape_html(photo, quote=True)}">'
-                                )
-                            else:
-                                st.html('<span class="fx-scout-photo fx-scout-photo-fallback">🏀</span>')
+                            st.html(
+                                '<span class="fx-scout-photo fx-scout-photo-fallback">'
+                                f'{escape_html(initials)}</span>'
+                            )
                         with summary_col:
-                            title = f"{rank_no}. {escape_html(player_name_text)}"
-                            st.markdown(f"**{title}**")
-                            details = [candidate.get("position") or "—", candidate.get("team") or "—"]
+                            st.markdown(f"**{rank_no}. {escape_html(player_name_text)}**")
+                            metrics = [f"{nba_team} · Eligible: {eligibility}"]
                             if adp is not None:
-                                details.append(f"ADP {float(adp):.1f}")
+                                metrics.append(f"ADP {float(adp):.1f}")
                             if search_rank is not None:
-                                details.append(f"Sleeper search #{search_rank}")
-                            st.caption(" · ".join(details))
+                                metrics.append(f"Sleeper search #{search_rank}")
+                            st.caption("  ·  ".join(metrics))
                             reason = (player_ai.get("draft_fit") or candidate.get("roster")
                                       or timing["position_note"])
+                            extra = str(player_ai.get("why_now") or "").strip()
+                            # Keep one concise explanation and the draft urgency visible.
                             st.html(
-                                f'<div class="fx-scout-one-liner">{escape_html(str(reason)[:155])}</div>'
+                                f'<div class="fx-scout-one-liner">'
+                                f'{escape_html(str(reason)[:185])}</div>'
                                 f'<div class="fx-scout-bottom-line">'
                                 f'<span class="fx-wait-badge fx-wait-{timing["risk"]}">'
                                 f'{escape_html(risk_label)}</span>'
-                                f'<span>{escape_html(timing["reason"][:165])}</span></div>'
+                                f'<span>{escape_html((extra or timing["reason"])[:195])}</span>'
+                                '</div>'
                             )
                             if player_name_text == (ai_report or {}).get("recommended_player"):
                                 st.caption("✦ AI Scout recommendation")

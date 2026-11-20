@@ -859,6 +859,78 @@ section[data-testid="stSidebar"] [class*="st-key-nav_"] button:focus-visible {
   }
 }
 
+/* Slightly roomier candidate comparisons, reliable monogram and responsive actions. */
+[class*="st-key-ai_candidate_"] [data-testid="stVerticalBlockBorderWrapper"] {
+  padding: 13px 14px !important;
+}
+[class*="st-key-ai_candidate_"] [data-testid="stCaptionContainer"] p {
+  color: #AFC6D1 !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+}
+.fx-scout-photo-fallback {
+  width: 52px; height: 52px; border-radius: 13px;
+  border: 1px solid rgba(80,215,151,.25);
+  background: linear-gradient(145deg,#245940,#193F36);
+  color: #A4F3CD; font-size: 16px; letter-spacing: .03em;
+  font-weight: 800; display: grid; place-items: center;
+}
+.fx-scout-one-liner { font-size: 13px; line-height: 1.4; margin: 4px 0 5px; }
+.fx-scout-bottom-line { font-size: 12px; line-height: 1.4; gap: 9px; }
+[class*="st-key-ai_candidate_"] button { min-height: 39px !important; font-weight: 650 !important; }
+.fx-team-breakdown {
+  display: grid; grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 10px; width: 100%; margin: 12px 0 16px;
+}
+.fx-team-panel {
+  background: #182B29; border: 1px solid rgba(60,166,108,.32);
+  border-radius: 13px; padding: 14px; min-width: 0;
+}
+.fx-team-eyebrow {
+  display: block; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .06em; color: #A0D7B7; font-weight: 750;
+}
+.fx-team-coverage {
+  display: block; color: #EAFBF1; font-size: 27px; font-weight: 780;
+  margin: 5px 0 11px; line-height: 1.1;
+}
+.fx-team-coverage small { font-size: 13px; color: #91AE9F; }
+.fx-team-position-list {
+  display: flex; flex-wrap: wrap; gap: 5px;
+  align-items: center;
+}
+.fx-team-pos, .fx-team-chip, .fx-team-division {
+  display: inline-flex; gap: 5px; align-items: center;
+  padding: 5px 8px; border-radius: 8px; font-size: 11px;
+  background: #24373A; color: #D3E3E1; border: 1px solid #37504A;
+}
+.fx-team-pos-filled { background: #25533A; border-color: #398B5A; color: #A2F2C7; }
+.fx-team-pos-open { background: #273438; color: #AEB7C2; }
+.fx-team-chip small, .fx-team-pos small { color: #77DFAA; font-weight: 700; }
+.fx-team-footnote, .fx-team-empty {
+  display: block; margin-top: 9px; font-size: 10px;
+  line-height: 1.4; color: #9CACB4;
+}
+.fx-team-conferences { display: flex; gap: 8px; margin: 13px 0 11px; flex-wrap: wrap; }
+.fx-team-stat {
+  display: flex; gap: 5px; align-items: center; flex-wrap: wrap;
+  background: #213A35; border-radius: 9px; padding: 7px 9px;
+  font-size: 11px; color: #A4D9BF;
+}
+.fx-team-stat strong { color: #E9FCF3; }
+.fx-team-division { padding: 4px 7px; }
+.fx-team-division b { color: #7AE5AC; }
+@media (max-width: 1150px) {
+  .fx-team-breakdown { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .fx-team-panel-wide { grid-column: 1 / -1; }
+}
+@media (max-width: 700px) {
+  .fx-team-breakdown { grid-template-columns: minmax(0,1fr); }
+  .fx-team-panel-wide { grid-column: auto; }
+  .fx-scout-photo-fallback { width: 40px; height: 40px; font-size: 13px; }
+  .fx-scout-one-liner { font-size: 12px; }
+}
+
 /* Compact AI Scout comparison: five rows visible without long page scrolling. */
 [class*="st-key-ai_candidate_"] [data-testid="stVerticalBlockBorderWrapper"] {
   padding: 8px 12px !important;

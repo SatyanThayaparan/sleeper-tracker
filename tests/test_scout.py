@@ -90,11 +90,11 @@ class ScoutTests(unittest.TestCase):
                             {"name": "Example Guard", "role_outlook": "Starter",
                              "recent_findings": "No recent evidence supplied.",
                              "availability_risk": "Unverified",
-                             "draft_fit": "Open PG", "why_now": "ADP urgency is uncertain.", "evidence_date": "Unverified"},
+                             "draft_fit": "Open PG", "why_now": "ADP urgency is uncertain.", "evidence_date": "Unverified", "evidence": []},
                             {"name": "Example Wing", "role_outlook": "Bench",
                              "recent_findings": "No recent evidence supplied.",
                              "availability_risk": "Unverified",
-                             "draft_fit": "Open SF", "why_now": "Limited data on waiting.", "evidence_date": "Unverified"}
+                             "draft_fit": "Open SF", "why_now": "Limited data on waiting.", "evidence_date": "Unverified", "evidence": []}
                         ],
                         "alternatives": ["Example Wing"],
                         "cautions": ["Verify any injury updates"],
@@ -132,12 +132,12 @@ class ScoutTests(unittest.TestCase):
                              "recent_findings": "No reports verified",
                              "availability_risk": "Unknown",
                              "draft_fit": "Fills PG", "why_now": "May not last",
-                             "evidence_date": "Unverified"},
+                             "evidence_date": "Unverified", "evidence": []},
                             {"name": "Example Wing", "role_outlook": "Bench",
                              "recent_findings": "No reports verified",
                              "availability_risk": "Unknown",
                              "draft_fit": "Adds depth", "why_now": "Can wait",
-                             "evidence_date": "Unverified"},
+                             "evidence_date": "Unverified", "evidence": []},
                         ],
                         "alternatives": [],
                         "cautions": [],
@@ -154,6 +154,47 @@ class ScoutTests(unittest.TestCase):
         prompt = calls[0]["input"]
         self.assertIn('"my_following_pick": 54', prompt)
         self.assertIn('"sleeper_search_rank": 19', prompt)
+
+    def test_scout_ignores_evidence_links_not_in_provider_citations(self):
+        calls = []
+        trusted = "https://www.espn.com/nba/story/_/id/1234/verified"
+        invented = "https://www.yahoo.com/fantasy/fictional-report"
+        class FakeResponses:
+            def create(self, **kwargs):
+                calls.append(kwargs)
+                players = []
+                for name, url in [("Example Guard", trusted), ("Example Wing", invented)]:
+                    players.append({
+                        "name": name, "role_outlook": "Unverified",
+                        "recent_findings": "Some claim", "availability_risk": "Unknown",
+                        "draft_fit": "Fits", "why_now": "Possible pick",
+                        "evidence_date": "2026-11-19",
+                        "evidence": [{
+                            "claim": "An attributed claim",
+                            "source_title": "Article",
+                            "source_url": url,
+                            "reported_date": "2026-11-19",
+                        }],
+                    })
+                return SimpleNamespace(
+                    output_text=json.dumps({
+                        "recommended_player": "Example Guard",
+                        "headline": "Example", "why_this_pick": "Fit",
+                        "confidence": "medium", "players": players,
+                        "alternatives": [], "cautions": [],
+                        "research_summary": "Two player search",
+                    }),
+                    output=[SimpleNamespace(content=[SimpleNamespace(
+                        annotations=[SimpleNamespace(url=trusted, title="Real source")]
+                    )])],
+                )
+        result = run_scout(self.players, open_slots=["PG"],
+                           client=SimpleNamespace(responses=FakeResponses()))
+        rows = result["report"]["players"]
+        self.assertEqual(len(rows[0]["evidence"]), 1)
+        self.assertEqual(rows[1]["evidence"], [])
+        self.assertEqual(len(result["sources"]), 1)
+        self.assertIn("draft_now_vs_wait", calls[0]["input"])
 
     def test_reject_more_than_five(self):
         with self.assertRaises(ValueError):

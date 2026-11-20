@@ -8,7 +8,7 @@ from expert_research import (
     classify_evidence, publisher, reported_age,
     verified_expert_evidence, report_research_summary,
 )
-from scout import (run_scout, turn_research_key, auto_research_due,
+from scout import (run_scout, safe_source_urls, turn_research_key, auto_research_due,
                    use_scout, cached_report_matches, cache_entry)
 
 
@@ -103,6 +103,82 @@ class ExpertEvidenceTests(unittest.TestCase):
 
 
 class ExpertScoutContractTests(unittest.TestCase):
+    def test_web_search_action_sources_are_collected_in_json_schema_mode(self):
+        # Structured JSON output can omit inline citations while web_search
+        # records the actual retrieved URLs in action.sources.
+        url = "https://www.nba.com/news/nba-fantasy-top-250-points-league-rankings"
+        response = SimpleNamespace(output=[
+            SimpleNamespace(
+                type="web_search_call",
+                action=SimpleNamespace(
+                    sources=[SimpleNamespace(type="url", url=url)],
+                ),
+            ),
+            SimpleNamespace(type="message", content=[
+                SimpleNamespace(annotations=[]),
+            ]),
+        ])
+        self.assertEqual(safe_source_urls(response), [
+            {"title": "Retrieved web page", "url": url}
+        ])
+
+    def test_source_from_web_search_is_allowlisted_and_unsupported_claims_are_not(self):
+        url = "https://www.nba.com/news/nba-fantasy-top-250-points-league-rankings"
+        def response_for(source):
+            player = {
+                "name": "Example Guard", "role_outlook": "Role unknown",
+                "recent_findings": "Cannot verify rotation", "availability_risk": "Unknown",
+                "draft_fit": "Guard depth", "why_now": "ADP",
+                "evidence_date": "Unverified",
+                "expert_take": "Expert source may discuss this player",
+                "evidence": [],
+                "expert_rankings": [{
+                    "claim": "Discussed in points rankings",
+                    "source_title": "NBA fantasy top 250 points league rankings",
+                    "source_url": url,
+                    "reported_date": "2026-11-18",
+                    "ranking_format": "Points",
+                }],
+            }
+            return SimpleNamespace(
+                output_text=json.dumps({
+                    "recommended_player": "Example Guard", "headline": "Ranked guard",
+                    "why_this_pick": "Points value", "confidence": "high",
+                    "players": [player], "alternatives": [], "cautions": [],
+                    "research_summary": "A guard ranking",
+                }),
+                output=[SimpleNamespace(
+                    type="web_search_call",
+                    action=SimpleNamespace(
+                        sources=[SimpleNamespace(url=url)] if source else []
+                    ),
+                )],
+            )
+        class Fake:
+            def __init__(self, response):
+                self.response = response
+                self.args = None
+            def create(self, **kwargs):
+                self.args = kwargs
+                return self.response
+        sample = [{"player": "Example Guard", "position": "PG",
+                   "roster": "Guard depth"}]
+        fake = Fake(response_for(True))
+        res = run_scout(sample, open_slots=["PG"],
+                        client=SimpleNamespace(responses=fake))
+        self.assertTrue(res["has_source_backed_research"])
+        self.assertEqual(res["sourced_players"], ["Example Guard"])
+        self.assertEqual(res["research_quality"]["total_verified_links"], 1)
+        self.assertEqual(fake.args["include"], ["web_search_call.action.sources"])
+
+        fake = Fake(response_for(False))
+        res = run_scout(sample, open_slots=["PG"],
+                        client=SimpleNamespace(responses=fake))
+        self.assertFalse(res["has_source_backed_research"])
+        self.assertIsNone(res["report"]["recommended_player"])
+        self.assertEqual(res["report"]["confidence"], "low")
+        self.assertEqual(res["research_quality"]["total_verified_links"], 0)
+
     def test_research_prompt_and_ranking_links_are_verified(self):
         actual = "https://sports.yahoo.com/fantasy/article/real-points-rankings"
         forged = "https://www.espn.com/fantasy/basketball/imaginary"

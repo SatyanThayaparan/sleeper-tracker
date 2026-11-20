@@ -478,6 +478,11 @@ def show_scout_player_details(candidate, player_ai, timing, source_list):
     st.write(timing["reason"])
     if player_ai.get("why_now"):
         st.write(player_ai["why_now"])
+    if player_ai and not (player_ai.get("verified_expert_evidence") or []):
+        st.warning("AI returned an interpretation for this player, but no "
+                   "provider-retrieved source supports a player-specific finding. "
+                   "Treat the text below as unverified commentary, not "
+                   "expert research.")
     if not player_ai:
         st.warning("No completed AI research is attached to this player for the current "
                    "Top 5. These details currently come from Picky's ranking engine "
@@ -554,6 +559,17 @@ def render_scout_report(entry, candidates):
         return
     incomplete = bool(entry.get("partial_report"))
     missing = entry.get("missing_players") or []
+    source_backed = bool(entry.get("has_source_backed_research",
+                                   (entry.get("research_quality") or {}).get("total_verified_links", 0) > 0))
+    if not source_backed:
+        st.error("No source-backed NBA or fantasy expert findings were retrieved. "
+                 "OpenAI returned an assessment, but it has no verified source URLs. "
+                 "Picky will not present it as a researched pick; "
+                 "continue using the ranking-based Top 5.")
+    elif entry.get("unsourced_players"):
+        st.info("Some players have only uncited AI observations. "
+                "Their ranking and roster-fit data remain available, "
+                "but external reporting was not verified for them.")
     if incomplete:
         st.warning(
             f"Partial AI research: {len(candidates) - len(missing)} of "
@@ -561,10 +577,10 @@ def render_scout_report(entry, candidates):
             "No AI analysis was invented for the others."
         )
         st.caption("Not individually researched: " + ", ".join(missing))
-    else:
+    elif source_backed:
         st.html(
             '<div class="fx-scout-finished" role="status">'
-            '✓ AI research complete — player insights are ready.'
+            '✓ Source-backed AI research is ready.'
             '</div>',
         )
     winner = str(report.get("recommended_player") or "")

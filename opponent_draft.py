@@ -51,6 +51,9 @@ def opponent_picks_before_next_turn(
     end = _positive_int(following_pick)
     if not (team_count and start and end and end > start):
         return []
+    if traded_picks is None or not set(str(value) for value in my_roster_ids):
+        # Unknown trade records or user identity -> avoid false owner claims.
+        return []
     roster_for_slot = _roster_by_slot(draft)
     if not roster_for_slot:
         return []

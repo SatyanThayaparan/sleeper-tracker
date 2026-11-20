@@ -102,21 +102,13 @@ class RendererTests(unittest.TestCase):
 
     def test_ai_player_name_and_metadata_render_in_one_html_block(self):
         """Avoid the overlapping Streamlit markdown-title/caption regression."""
-        tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
-        calls = [node for node in ast.walk(tree)
-                 if isinstance(node, ast.Call)
-                 and isinstance(node.func, ast.Attribute)
-                 and node.func.attr == "html"
-                 and any(isinstance(arg, ast.JoinedStr) and
-                         "fx-scout-copy" in ast.unparse(arg)
-                         for arg in node.args)]
-        self.assertTrue(calls, "Candidate name and metadata must share a stacked HTML block")
         markup = SOURCE.read_text(encoding="utf-8")
         start = markup.index("with summary_col:", markup.index('key=f"ai_candidate_{rank_no}"'))
         end = markup.index("with action_col:", start)
         snippet = markup[start:end]
         self.assertNotIn("st.caption(", snippet)
         self.assertNotIn("st.markdown(", snippet)
+        self.assertIn("st.html(", snippet)
         for name in ("fx-scout-player-name", "fx-scout-meta",
                      "fx-scout-one-liner", "fx-scout-bottom-line"):
             self.assertIn(name, snippet)

@@ -8,7 +8,8 @@ from expert_research import (
     classify_evidence, publisher, reported_age,
     verified_expert_evidence, report_research_summary,
 )
-from scout import run_scout, turn_research_key, auto_research_due, use_scout
+from scout import (run_scout, turn_research_key, auto_research_due,
+                   use_scout, cached_report_matches, cache_entry)
 
 
 class ExpertEvidenceTests(unittest.TestCase):
@@ -63,6 +64,31 @@ class ExpertEvidenceTests(unittest.TestCase):
         report = report_research_summary({"players": [dict(player, verified_expert_evidence=rows)]})
         self.assertEqual(report["players_with_rankings"], 1)
         self.assertEqual(report["total_verified_links"], 2)
+
+    def test_draft_changes_invalidate_prior_shortlist(self):
+        key = turn_research_key("draft", "owner", 103)
+        session = {}
+        use_scout(session, key, [
+            {"player": "Guard"}, {"player": "Center"}
+        ], open_slots=[], research_fn=lambda *_args, **_kwargs: {
+            "report": {"players": [{"name": "Guard"}, {"name": "Center"}]},
+            "sources": [], "timestamp": 100,
+        })
+        stored = cache_entry(session, key, now=101)
+        self.assertTrue(cached_report_matches(
+            stored, [{"player": "Guard"}, {"player": "Center"}]
+        ))
+        changed = [{"player": "Forward"}, {"player": "Center"}]
+        self.assertFalse(cached_report_matches(stored, changed))
+        self.assertTrue(auto_research_due(
+            session, key, on_clock=True, unlocked=True, configured=True,
+            candidate_count=2, draft_active=True, candidates=changed,
+        ))
+        self.assertFalse(auto_research_due(
+            session, key, on_clock=True, unlocked=True, configured=True,
+            candidate_count=2, draft_active=True,
+            candidates=[{"player": "Center"}, {"player": "Guard"}],
+        ))
 
     def test_preturn_report_prevents_duplicate_auto_charge(self):
         key = turn_research_key("draft", "user", 103)

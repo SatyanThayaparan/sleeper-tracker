@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 
 from ai import get_openai_client
 from draft_strategy import timing_for_shortlist
+from expert_research import verified_expert_evidence, report_research_summary
 
 DEFAULT_MODEL = "gpt-4.1-mini"
 CACHE_TTL_SECONDS = 20 * 60
@@ -153,6 +154,23 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
                         "draft_fit": {"type": "string"},
                         "why_now": {"type": "string"},
                         "evidence_date": {"type": "string"},
+                        "expert_take": {"type": "string"},
+                        "expert_rankings": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "claim": {"type": "string"},
+                                    "source_title": {"type": "string"},
+                                    "source_url": {"type": "string"},
+                                    "reported_date": {"type": "string"},
+                                    "ranking_format": {"type": "string"},
+                                },
+                                "required": ["claim", "source_title", "source_url",
+                                             "reported_date", "ranking_format"],
+                                "additionalProperties": False,
+                            },
+                        },
                         "evidence": {
                             "type": "array",
                             "items": {
@@ -170,7 +188,7 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
                     },
                     "required": ["name", "role_outlook", "recent_findings",
                                  "availability_risk", "draft_fit", "why_now", "evidence_date",
-                                 "evidence"],
+                                 "evidence", "expert_take", "expert_rankings"],
                     "additionalProperties": False,
                 },
             },
@@ -197,7 +215,24 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
         "only if the evidence supports a recommendation. Search a range of "
         "reputable basketball publications and official reports. Search "
         "ESPN NBA and ESPN fantasy articles, Yahoo Sports / Yahoo Fantasy, "
-        "NBA.com and official team reporting when relevant. State when "
+        "NBA.com and official team reporting when relevant. "
+        "EXPERT RESEARCH: search official ESPN fantasy basketball draft "
+        "rankings and H2H points cheat sheets and ESPN fantasy analysis; "
+        "Yahoo Fantasy Basketball draft kit, Dan Titus points-league "
+        "rankings and recent Yahoo fantasy analysis; also NBA.com fantasy "
+        "rankings, RotoWire, CBS Sports and FantasyPros when accessible. "
+        "For EACH player, contrast expert perspectives with Picky's "
+        "baseline; distinguish preseason draft ranks from current news, "
+        "and points-league rankings from category or roto rankings. "
+        "Yahoo/ESPN default scoring is NOT the same as this league's "
+        "custom Lock-In rules. Return 'expert_take' (a short attributed "
+        "summary including agreement/disagreement and limitations) and "
+        "up to THREE 'expert_rankings' entries giving source title, URL, "
+        "date, ranking_format, and a specific source-supported claim. "
+        "If inaccessible or unverified, return no expert ranking entries. "
+        "Do NOT manufacture numerical ranks or expert consensus. "
+        "Treat preseason cheat sheets as background: recent injury and "
+        "rotation updates outrank stale draft rankings. State when "
         "recent relevant coverage from a named outlet cannot be verified. Prefer "
         "timely sources, state exact report dates when available, distinguish "
         "new updates from stale reports, and acknowledge when a player has "
@@ -226,7 +261,7 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
         "Do not infer intent or precise availability percentages. "
         "The supplied draft_now_vs_wait entries are application-derived; "
         "use their risk label and explanation without inventing percentages. "
-        "For each player, return up to two short evidence objects with the "
+        "For each player, return up to three short evidence objects with the "
         "actual article title, publication date, claim, and source URL. "
         "Include an evidence item ONLY for a real report read through web search. "
         "Never invent URLs or dates. If you cannot verify a report, return an "
@@ -257,7 +292,7 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
             "strict": True,
             "schema": report_schema,
         }},
-        max_output_tokens=4300,
+        max_output_tokens=6200,
         store=False,
     )
     body = (getattr(response, "output_text", "") or "").strip()
@@ -281,10 +316,19 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
     for player in report["players"]:
         incoming = player.get("evidence")
         player["evidence"] = [
-            item for item in (incoming if isinstance(incoming, list) else [])[:3]
+            item for item in (incoming if isinstance(incoming, list) else [])[:4]
             if isinstance(item, dict) and item.get("source_url") in source_urls
             and item.get("claim") and item.get("source_title")
-        ][:2]
+        ][:3]
+        rankings = player.get("expert_rankings")
+        player["expert_rankings"] = [
+            item for item in (rankings if isinstance(rankings, list) else [])[:4]
+            if isinstance(item, dict) and item.get("source_url") in source_urls
+            and item.get("claim") and item.get("source_title")
+        ][:3]
+        player["verified_expert_evidence"] = verified_expert_evidence(
+            player, source_urls
+        )
     covered = {row.get("name") for row in report["players"]}
     if covered != allowed:
         raise RuntimeError(
@@ -292,6 +336,7 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
         )
     return {
         "report": report,
+        "research_quality": report_research_summary(report),
         "sources": actual_sources,
         "model": model,
         "timestamp": time.time(),

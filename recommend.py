@@ -5,6 +5,8 @@ import unicodedata
 
 import pandas as pd
 
+from lockin import lockin_estimate, STATS
+
 HARD_STATUS = {'OUT', 'DOUBTFUL', 'IR', 'INJURED', 'SUSPENDED'}
 SOFT_STATUS = {'QUESTIONABLE', 'GTD', 'DTD'}
 FLEX_SLOTS = {'UTIL', 'UTILITY', 'FLEX', 'BN', 'BENCH'}
@@ -446,7 +448,7 @@ def candidate_rows(ranking, players, picked_ids, adp_frame=None):
     return search_rank_pool(players, picked_ids), 'search_rank'
 
 
-def score_candidates(frame, origin, players, roster_ids, slots, articles, has_user, upside_weight, safety_weight, risk_weight, fit_bonus):
+def score_candidates(frame, origin, players, roster_ids, slots, articles, has_user, upside_weight, safety_weight, risk_weight, fit_bonus, scoring_settings=None):
     prepared = []
     for row in frame.itertuples(index=False):
         pid = str(row.player_id)
@@ -480,7 +482,22 @@ def score_candidates(frame, origin, players, roster_ids, slots, articles, has_us
                 score *= 1 - risk_weight / 200
             score *= news_penalty(tone, hits, origin)
             score *= need_score_multiplier(roles, counts, targets, has_user, category, fit_bonus)
+        def numeric_attr(key):
+            return optional_number(row, key)
+        lockin = (lockin_estimate(
+            projected_fppg=numeric_attr('projected_fppg'),
+            floor_fppg=numeric_attr('floor_fppg'),
+            upside_fppg=numeric_attr('upside_fppg'),
+            standard_deviation=numeric_attr('stdev_fppg'),
+            games_per_week=numeric_attr('games_per_week'),
+            availability_pct=numeric_attr('availability_pct'),
+            projected_stats={key: numeric_attr(key) for key in STATS},
+            league_scoring=scoring_settings or {},
+        ) if origin == 'projection' else
+            {'available': False, 'points': None,
+             'reason': 'ADP/search order is not a Lock-In scoring projection.'})
         scored.append({
+            'lockin': lockin,
             'player_id': pid,
             'player': name,
             'position': ', '.join(positions_of(meta)),
@@ -506,6 +523,18 @@ def score_candidates(frame, origin, players, roster_ids, slots, articles, has_us
             'eligible_depth': {role: counts.get(role, 0) for role in roles}
                 if has_user else {},
         })
+    # Only change relative rankings when *all* compared projections contain
+    # the necessary Lock-In inputs; never favor a player merely because
+    # somebody else has missing variance or availability data.
+    if origin == 'projection' and scored and all(
+        row['lockin'].get('available') for row in scored
+    ):
+        for row in scored:
+            mean = row['lockin'].get('mean') or 0.0
+            if mean > 0:
+                ratio = max(0.75, min(1.4, row['lockin']['points'] / mean))
+                row['score'] *= ratio
+                row['lockin_ranked'] = True
     scored.sort(key=lambda item: item['score'], reverse=True)
     return scored
 
@@ -697,7 +726,7 @@ def pick_fade(rows, skipped):
     return {**row, 'reasons': reasons}
 
 
-def build_recommendations(ranking, players, picked_ids, roster_ids, slots, articles, has_user, upside_weight, safety_weight, risk_weight, fit_bonus, adp_frame=None, teams=12):
+def build_recommendations(ranking, players, picked_ids, roster_ids, slots, articles, has_user, upside_weight, safety_weight, risk_weight, fit_bonus, adp_frame=None, teams=12, scoring_settings=None):
     frame, origin = candidate_rows(ranking, players, picked_ids, adp_frame)
     open_slots = [str(slot) for slot in remaining_slots(roster_ids, players, slots)] if has_user else []
     empty = {
@@ -717,6 +746,7 @@ def build_recommendations(ranking, players, picked_ids, roster_ids, slots, artic
     rows = score_candidates(
         frame, origin, players, roster_ids, slots, articles, has_user,
         upside_weight, safety_weight, risk_weight, fit_bonus,
+        scoring_settings=scoring_settings,
     )
     chosen, options, skipped = select_recommendation(rows)
     sleeper = pick_sleeper(rows, teams or 12) if origin == 'adp' else None
@@ -729,6 +759,8 @@ def build_recommendations(ranking, players, picked_ids, roster_ids, slots, artic
         chosen = with_reasons(chosen, origin, articles)
     return {
         'rows': rows,
+        'lockin_ranked': bool(rows and all(row.get('lockin_ranked') for row in rows)),
+        'lockin_available': sum(1 for row in rows if row.get('lockin', {}).get('available')),
         'recommended': chosen,
         'options': options,
         'sleeper': sleeper,

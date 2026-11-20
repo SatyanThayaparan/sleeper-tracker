@@ -944,6 +944,65 @@ def live_dashboard(active_page: str):
         scoring_settings=league.get("scoring_settings") or {},
     )
 
+    if active_page == "lab":
+        render_page_header(
+            title="AI Lab",
+            subtitle="Measure draft decisions and test the ADP baseline using observed Sleeper selections.",
+            live=False,
+        )
+        st.info("Evaluation uses actual Sleeper picks, not fabricated player outcomes. "
+                "Live shortlist snapshots are saved only in this browser session. "
+                "Historical replay uses today's ADP and is a retrospective proxy, not an unbiased backtest.")
+        all_snapshots = st.session_state.get("picky_eval_snapshots", {})
+        snapshots = {key: value for key, value in all_snapshots.items()
+                     if value.get("draft_id") == str(draft_id)}
+        rows_eval = evaluate_snapshots(snapshots, picks)
+        summary = evaluation_summary(rows_eval)
+        q1, q2, q3, q4 = st.columns(4)
+        q1.metric("Outcomes assessed", summary["reviewed"])
+        q2.metric("Survived until next turn", summary["survived"])
+        q3.metric("Taken before next turn", summary["taken"])
+        q4.metric("Pending / unverified", summary["pending"] + summary["unverifiable"])
+        if rows_eval:
+            st.dataframe(pd.DataFrame(rows_eval), hide_index=True, use_container_width=True)
+            st.download_button(
+                "Export observed decisions CSV", data=rows_as_csv(rows_eval),
+                file_name="picky_observed_decisions.csv", mime="text/csv",
+                key="export_live_evaluation",
+            )
+        else:
+            st.caption("No on-clock shortlist snapshots recorded in this browser session yet. "
+                       "Keep Overview open during a draft turn to begin collecting decisions.")
+        st.markdown("### Retrospective ADP replay")
+        st.caption("Replays the current ADP order against picks already made in this draft. "
+                   "It cannot reconstruct historically available projections, news or Lock-In values.")
+        replay = replay_adp_baseline(
+            picks,
+            adp_frame.to_dict("records") if not adp_frame.empty else [],
+            teams,
+        )
+        if replay:
+            totals = evaluation_summary(replay)
+            st.write(
+                f"Reviewing {totals['reviewed']} resolved candidate-pick observations: "
+                f"{totals['survived']} survived to the next round, "
+                f"{totals['taken']} were selected earlier."
+            )
+            st.dataframe(pd.DataFrame(replay), hide_index=True, use_container_width=True)
+            st.download_button(
+                "Export retrospective replay CSV", data=rows_as_csv(replay),
+                file_name="picky_adp_replay.csv", mime="text/csv",
+                key="export_replay",
+            )
+        else:
+            st.caption("Retrospective replay becomes available after enough draft picks "
+                       "and with the Hashtag ADP source loaded.")
+        st.markdown("### Interpreting results")
+        st.caption("These checks measure shortlist availability, not whether the player "
+                   "would have scored more fantasy points. No price or paid AI requests "
+                   "are made to run these diagnostics.")
+        return
+
     if active_page == "team":
         render_page_header(
             title="My Team",
@@ -1056,6 +1115,12 @@ def live_dashboard(active_page: str):
                     players.get(str(candidate.get("player_id")), {}).get("search_rank")
                 )
             following_pick = upcoming[1] if len(upcoming) > 1 else None
+            if on_clock and following_pick and top_five:
+                record_snapshot(
+                    st.session_state, draft_id=draft_id,
+                    upcoming_pick=upcoming[0], following_pick=following_pick,
+                    current_pick=next_pick, candidates=top_five,
+                )
             # Sleeper reports current traded-pick ownership separately from
             # original snake order. Cache it briefly; do not guess if missing.
             traded_pick_data = None
@@ -1268,6 +1333,10 @@ def live_dashboard(active_page: str):
                                 metrics.append(f"ADP {float(adp):.1f}")
                             if search_rank is not None:
                                 metrics.append(f"Sleeper search #{search_rank}")
+                            if (candidate.get("lockin") or {}).get("available"):
+                                metrics.append(
+                                    f"Lock-In opportunity {candidate['lockin']['points']:.1f} pts"
+                                )
                             # Always prefer fresh deterministic eligible-depth advice
                             # over cached AI text that may describe a false vacancy.
                             reason = (candidate.get("roster") or player_ai.get("draft_fit")

@@ -6,6 +6,8 @@ from copilot import (MAX_FOLLOWUPS, ask_copilot, compare_question,
 from evaluation import (evaluate_snapshots, evaluation_summary,
                         record_snapshot, replay_adp_baseline, rows_as_csv)
 from lockin import best_of_games, lockin_estimate, score_from_stats
+import pandas as pd
+from recommend import build_recommendations
 
 
 class LockInTests(unittest.TestCase):
@@ -67,6 +69,48 @@ class LockInTests(unittest.TestCase):
         )
         self.assertTrue(result["available"])
         self.assertGreater(result["sd"], 0)
+
+
+class RankingIntegrationTests(unittest.TestCase):
+    def sample_frame(self, missing=False):
+        rows = [
+            {"player_id": "1", "base": 40, "projected_fppg": 40,
+             "stdev_fppg": 8, "upside_fppg": 52, "floor_fppg": 28,
+             "games_per_week": 4, "availability_pct": 90,
+             "metric_label": "Projected fantasy points per game"},
+            {"player_id": "2", "base": 37, "projected_fppg": 37,
+             "stdev_fppg": None if missing else 9,
+             "upside_fppg": None if missing else 51,
+             "floor_fppg": None if missing else 24,
+             "games_per_week": 3, "availability_pct": 92,
+             "metric_label": "Projected fantasy points per game"},
+        ]
+        return pd.DataFrame(rows)
+
+    def get_board(self, missing=False):
+        players = {
+            "1": {"full_name": "Guard", "fantasy_positions": ["PG", "SG"],
+                  "team": "TOR"},
+            "2": {"full_name": "Center", "fantasy_positions": ["C"],
+                  "team": "DEN"},
+        }
+        return build_recommendations(
+            self.sample_frame(missing), players, set(), [],
+            ["PG", "SG", "C", "UTIL"], [], False,
+            35, 20, 15, 15, scoring_settings={"pts": 1}
+        )
+
+    def test_complete_lockin_projection_used_for_rankings(self):
+        board = self.get_board()
+        self.assertTrue(board["lockin_ranked"])
+        self.assertEqual(board["lockin_available"], 2)
+        self.assertTrue(all(row["lockin"]["available"] for row in board["rows"]))
+
+    def test_missing_variance_keeps_original_ranking(self):
+        board = self.get_board(missing=True)
+        self.assertFalse(board["lockin_ranked"])
+        self.assertEqual(board["lockin_available"], 1)
+        self.assertTrue(all(not row.get("lockin_ranked") for row in board["rows"]))
 
 
 class CopilotTests(unittest.TestCase):

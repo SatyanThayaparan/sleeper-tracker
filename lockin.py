@@ -43,6 +43,11 @@ def score_from_stats(projected_stats, league_scoring):
     for key, value in (league_scoring or {}).items():
         normalized = ALIASES.get(str(key).lower(), str(key).lower())
         if normalized not in STATS:
+            # Unsupported scoring bonuses/stat categories must not be quietly
+            # ignored and misrepresented as fully league-scored projections.
+            unsupported_weight = finite_number(value)
+            if unsupported_weight is not None and unsupported_weight != 0:
+                missing.append(str(key))
             continue
         weight = finite_number(value)
         if weight is None or weight == 0:
@@ -121,7 +126,7 @@ def lockin_estimate(*, projected_fppg=None, floor_fppg=None,
         "available": True, "points": round(value, 2),
         "mean": round(mean, 2), "sd": round(sd, 2),
         "scheduled_games": n, "availability": round(p, 3),
-        "no_game_prob": round(no_game_prob, 3),
+        "no_game_prob": round(no_game_prob, 6),
         "method": "Optimistic expected best game; not a guaranteed lock score",
         "scoring_source": "full league-stat projection" if weighted and not weighted["missing"]
                           else "imported league-scored FPPG",

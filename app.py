@@ -15,6 +15,9 @@ from roster import assign_lineup, chronological_roster, next_user_picks, top_fiv
 from ai import openai_configured, get_scout_access_code, scout_access_granted
 from draft_strategy import evaluate_pick_timing
 from recommend import role_counts
+from copilot import ask_copilot, context_snapshot, compare_question, MAX_FOLLOWUPS
+from evaluation import (record_snapshot, evaluate_snapshots, evaluation_summary,
+                        replay_adp_baseline, rows_as_csv)
 from opponent_draft import opponent_context_for_candidate
 from nba_teams import roster_breakdown, FRANCHISES
 from scout import (cache_entry, research_key, research_allowed, use_scout,
@@ -583,10 +586,10 @@ def render_settings_form(league_id_hint: str = ""):
             st.file_uploader("Player rankings or projections CSV", type=["csv"], key="cfg_upload")
             st.download_button(
                 "Download Lock-In projection template",
-                data="player,projected_fppg,upside_fppg,floor_fppg,games_per_week,availability_pct\\n",
+                data="player,projected_fppg,upside_fppg,floor_fppg,stdev_fppg,games_per_week,availability_pct\\n",
                 file_name="lockin_projection_template.csv", mime="text/csv",
             )
-            st.caption("Optional columns: upside_fppg, floor_fppg, games_per_week, availability_pct.")
+            st.caption("For a calibrated-input Lock-In opportunity estimate, include projected_fppg, stdev_fppg (or floor/upside), games_per_week and availability_pct. Picky never invents missing values.")
     with st.container(border=True):
         st.markdown("### 3. Recommendation preferences")
         st.caption("Balanced (recommended): keep the current default weighting for upside, "
@@ -679,6 +682,7 @@ with st.sidebar:
         "board": ":material/view_module:",
         "players": ":material/bar_chart:",
         "reports": ":material/article:",
+        "lab": ":material/science:",
         "settings": ":material/settings:",
         "help": ":material/help_outline:",
     }
@@ -937,6 +941,7 @@ def live_dashboard(active_page: str):
         fit_bonus,
         adp_frame,
         teams or 12,
+        scoring_settings=league.get("scoring_settings") or {},
     )
 
     if active_page == "team":
@@ -1560,7 +1565,7 @@ def live_dashboard(active_page: str):
                         st.caption(details)
 
 
-if page in ("overview", "team", "board", "players", "reports"):
+if page in ("overview", "team", "board", "players", "reports", "lab"):
     # Keyed page content remounts when navigation changes, enabling a brief
     # enter animation without altering the Sleeper data-refresh fragment.
     with st.container(key=f"view_{page}"):

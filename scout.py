@@ -110,23 +110,40 @@ def recovery_allowed(session, key):
 
 
 def safe_source_urls(response):
-    """Get URLs from provider citation annotations, not model-invented links."""
+    """Collect provider-retrieved web sources, plus cited final-message URLs.
+
+    The Responses API puts web search sources in web_search_call.action.sources
+    *when* include=['web_search_call.action.sources'] is requested. A structured
+    JSON response may have no text annotation even after successful web search.
+    Retrieved URLs are provenance allowlist entries, not independent proof of
+    every model claim about a given page.
+    """
     sources = []
     seen = set()
-    for item in getattr(response, "output", []) or []:
-        for part in getattr(item, "content", []) or []:
-            for annotation in getattr(part, "annotations", []) or []:
-                url = getattr(annotation, "url", None)
-                title = getattr(annotation, "title", None) or "Source"
-                if not isinstance(url, str):
-                    continue
-                parsed = urlparse(url)
-                if parsed.scheme not in ("https", "http") or not parsed.netloc:
-                    continue
-                if url not in seen:
-                    sources.append({"title": str(title)[:160], "url": url})
-                    seen.add(url)
-    return sources[:25]
+
+    def field(obj, key):
+        return obj.get(key) if isinstance(obj, dict) else getattr(obj, key, None)
+
+    def add(url, title="Retrieved web page"):
+        if not isinstance(url, str):
+            return
+        parsed = urlparse(url)
+        if parsed.scheme not in ("https", "http") or not parsed.netloc:
+            return
+        if url not in seen:
+            sources.append({"title": str(title or "Retrieved web page")[:160],
+                            "url": url})
+            seen.add(url)
+
+    for item in field(response, "output") or []:
+        if field(item, "type") == "web_search_call":
+            action = field(item, "action")
+            for source in field(action, "sources") or []:
+                add(field(source, "url"), field(source, "title"))
+        for part in field(item, "content") or []:
+            for annotation in field(part, "annotations") or []:
+                add(field(annotation, "url"), field(annotation, "title"))
+    return sources[:45]
 
 
 def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
@@ -315,6 +332,15 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
         "empty evidence list and explain the uncertainty. "
         "Do not modify numerical ranking scores or treat those values as "
         "fantasy point projections. Restrict yourself to the supplied candidates. "
+        "OUTPUT COVERAGE: You have a strict five-player budget. Output exactly "
+        "one short player object for each listed candidate, in order, "
+        "with names copied literally. Use at most 65 words across that "
+        "player's short string fields and at most ONE article and ONE "
+        "expert ranking per player. Empty arrays are correct when no source "
+        "can be verified. Prioritize five individual summaries over long "
+        "narrative, alternatives or cautions. Keep those arrays short. "
+        "An AI opinion without a retrieved source is a roster-based "
+        "interpretation only, NOT source-backed research. "
         "Write a concise, plain-English report. The recommended_player MUST "
         "be an exact name supplied in candidates_in_picky_rank_order. "
         "For every player, explain opportunity/role, findings, injury "
@@ -332,6 +358,7 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
         input="Research these current fantasy draft candidates:\\n"
               + json.dumps(roster_context, ensure_ascii=False, default=str),
         tools=[{"type": "web_search", "search_context_size": "medium"}],
+        include=["web_search_call.action.sources"],
         tool_choice="required",
         text={"format": {
             "type": "json_schema",
@@ -339,7 +366,7 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
             "strict": True,
             "schema": report_schema,
         }},
-        max_output_tokens=6200,
+        max_output_tokens=8500,
         store=False,
     )
     body = (getattr(response, "output_text", "") or "").strip()
@@ -397,12 +424,25 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
             "AI Scout returned no usable player-specific research. "
             "No AI report was saved."
         )
-    if report.get("recommended_player") not in covered:
-        # An unresearched name is not a supportable AI recommendation.
-        # Keep that candidate in the deterministic ranking only.
+    # Claims about expert news require a provider-retrieved URL. Neither
+    # JSON completion nor a convincing explanation alone establishes research.
+    sourced = {
+        p.get("name") for p in report["players"]
+        if p.get("verified_expert_evidence")
+    }
+    unsourced_players = [p for p in candidates if p.get("player") not in sourced]
+    if report.get("recommended_player") not in sourced:
+        # Keep draft-rank suggestion visible separately, but not as
+        # a source-backed AI recommendation with asserted confidence.
         report["recommended_player"] = None
         report["why_this_pick"] = ""
         report["confidence"] = "low"
+    if not sourced:
+        report["research_summary"] = (
+            "No citation-backed player findings were returned. "
+            "Picky's rankings are still available, but this response "
+            "must not be treated as externally researched."
+        )
     return {
         "report": report,
         "research_quality": report_research_summary(report),
@@ -412,6 +452,11 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
         "covered_players": sorted(covered),
         "missing_players": missing_players,
         "partial_report": bool(missing_players),
+        "sourced_players": sorted(sourced),
+        "unsourced_players": [
+            str(p.get("player")) for p in unsourced_players
+        ],
+        "has_source_backed_research": bool(sourced),
     }
 
 

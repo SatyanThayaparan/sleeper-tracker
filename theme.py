@@ -17,6 +17,7 @@ NAV_PAGES = [
     ("board", "Draft Board"),
     ("players", "Player Rankings"),
     ("reports", "Reports & News"),
+    ("lab", "AI Lab"),
 ]
 
 UTIL_PAGES = [

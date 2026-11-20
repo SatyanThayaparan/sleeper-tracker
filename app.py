@@ -1106,6 +1106,7 @@ def live_dashboard(active_page: str):
             st.markdown("#### Top 5 available options")
             if top_five:
                 ai_report = None
+                current_entry = None
                 if (my_user_id and upcoming and
                         st.session_state.get("scout_unlocked", False)):
                     current_key = turn_research_key(draft_id, my_user_id, upcoming[0])

@@ -293,7 +293,7 @@ def need_note(roles, counts, targets, has_user, fallback):
         (pos, count) for pos, count in counts.items()
         if pos not in roles and count > have
     ]
-    deepest = max(other_positions, key=lambda pair: pair[1], default=None)
+    deepest = max(other_positions, key=lambda pair: (pair[1], ROLES.index(pair[0])), default=None)
     starter_gap = bool(fallback.startswith('Fills your open '))
     if have == 0:
         return f'No drafted players are eligible at {role} yet. {fallback}'

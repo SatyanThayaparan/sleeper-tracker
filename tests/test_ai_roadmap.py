@@ -50,6 +50,16 @@ class LockInTests(unittest.TestCase):
         self.assertFalse(result["available"])
         self.assertIn("ast", result["reason"])
 
+    def test_unsupported_scoring_bonus_needs_imported_full_fppg(self):
+        result = lockin_estimate(
+            projected_stats={"pts": 20},
+            league_scoring={"pts": 1, "bonus_dd": 2},
+            standard_deviation=5, games_per_week=3,
+            availability_pct=90,
+        )
+        self.assertFalse(result["available"])
+        self.assertIn("bonus_dd", result["reason"])
+
     def test_floor_and_upside_can_approximate_spread(self):
         result = lockin_estimate(
             projected_fppg=30, floor_fppg=18, upside_fppg=44,

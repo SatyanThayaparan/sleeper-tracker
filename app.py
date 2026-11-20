@@ -1433,8 +1433,9 @@ def live_dashboard(active_page: str):
                     history = st.session_state.get("picky_copilot_history", {}).get(
                         question_key, []
                     )
+                    attempts = st.session_state.get("picky_copilot_attempts", {}).get(question_key, 0)
                     st.caption(
-                        f"{len(history)} / {MAX_FOLLOWUPS} manual AI requests used "
+                        f"{attempts} / {MAX_FOLLOWUPS} manual AI requests used "
                         "for this turn. These responses reuse existing research, "
                         "without another web search, but still consume model tokens."
                     )
@@ -1452,7 +1453,7 @@ def live_dashboard(active_page: str):
                                 index=1, key="copilot_compare_b",
                             )
                         if st.button("Compare these players", key="copilot_compare_button",
-                                     disabled=len(history) >= MAX_FOLLOWUPS):
+                                     disabled=attempts >= MAX_FOLLOWUPS):
                             try:
                                 query = compare_question(first, second, context)
                                 ask_copilot(st.session_state, key=question_key,
@@ -1467,7 +1468,7 @@ def live_dashboard(active_page: str):
                         max_chars=500, height=80,
                     )
                     if st.button("Ask Picky", key="picky_ask_copilot",
-                                 disabled=len(history) >= MAX_FOLLOWUPS or
+                                 disabled=attempts >= MAX_FOLLOWUPS or
                                  len(question.strip()) < 3):
                         try:
                             ask_copilot(st.session_state, key=question_key,
@@ -1478,7 +1479,7 @@ def live_dashboard(active_page: str):
                     for turn in reversed(history[-4:]):
                         st.markdown("**You:** " + escape_html(turn["question"]))
                         st.write(turn["answer"])
-                    if len(history) >= MAX_FOLLOWUPS:
+                    if attempts >= MAX_FOLLOWUPS:
                         st.warning("This turn has reached the Copilot follow-up limit.")
             elif not is_complete:
                 st.caption("Unlock AI Scout with your passkey to enable optional "

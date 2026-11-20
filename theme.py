@@ -860,6 +860,16 @@ section[data-testid="stSidebar"] [class*="st-key-nav_"] button:focus-visible {
   }
 }
 
+/* Verified expert coverage is separate from deterministic draft ranking. */
+.fx-scout-expert-line {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #79DDA7;
+  font-weight: 650;
+}
+
 /* Stable stack for player text: avoids Streamlit caption/name overlap. */
 [class*="st-key-ai_candidate_"] .fx-scout-copy {
   display: flex !important;

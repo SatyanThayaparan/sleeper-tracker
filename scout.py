@@ -464,7 +464,7 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
     """
     if not 1 <= len(candidates) <= MAX_CANDIDATES:
         raise ValueError("AI Scout needs between one and five candidates.")
-    if len(candidates) == 1:
+    if len(candidates) <= 2:
         return _run_scout_batch(
             candidates, open_slots=open_slots, scoring_format=scoring_format,
             model=model, client=client, context=context,

@@ -1378,6 +1378,113 @@ def live_dashboard(active_page: str):
                 st.caption("These five are selected by Picky's ranking engine. "
                            "AI insights appear after current-pick research completes.")
 
+        # Phase 3: show quantitative Lock-In value only with verified inputs.
+        if not is_complete:
+            if board.get("origin") == "projection":
+                with st.expander("Lock-In opportunity model · inputs and limitations"):
+                    st.caption(
+                        "An exploratory expected best-game model, not guaranteed "
+                        "locked fantasy points. The model uses your league's "
+                        "scoring settings when complete stat projections exist; "
+                        "otherwise your imported league-scored FPPG."
+                    )
+                    coverage = board.get("lockin_available", 0)
+                    total = len(board.get("rows") or [])
+                    st.write(f"Usable Lock-In distributions: {coverage} / {total} projected players.")
+                    st.write(
+                        "Ranking impact: " +
+                        ("Enabled — all compared players have distributions."
+                         if board.get("lockin_ranked") else
+                         "Not enabled — some players lack comparable distributions.")
+                    )
+                    lock_rows = [
+                        {"Player": player.get("player"),
+                         "Opportunity pts": player["lockin"]["points"],
+                         "Expected per-game": player["lockin"]["mean"],
+                         "Games/week": player["lockin"]["scheduled_games"],
+                         "Chance of zero games": player["lockin"]["no_game_prob"]}
+                        for player in (board.get("rows") or [])[:25]
+                        if (player.get("lockin") or {}).get("available")
+                    ]
+                    if lock_rows:
+                        st.dataframe(pd.DataFrame(lock_rows), hide_index=True,
+                                     use_container_width=True)
+                    else:
+                        st.caption("Upload an enriched projection CSV to enable the model.")
+            else:
+                st.caption("Lock-In points model inactive: ADP is draft-order "
+                           "information, not a projected weekly fantasy score.")
+
+            # Phase 4: paid follow-ups are manual, never part of auto-refresh.
+            if (top_five and my_user_id and upcoming and
+                    st.session_state.get("scout_unlocked", False) and
+                    openai_configured()):
+                with st.expander("Ask Picky · AI Copilot and player comparisons"):
+                    question_key = turn_research_key(
+                        draft_id, my_user_id, upcoming[0]
+                    )
+                    saved_report = cache_entry(st.session_state, question_key)
+                    context = context_snapshot(
+                        top_five,
+                        role_counts=role_counts(roster_ids, players),
+                        next_pick=next_pick,
+                        report=(saved_report or {}).get("report"),
+                    )
+                    history = st.session_state.get("picky_copilot_history", {}).get(
+                        question_key, []
+                    )
+                    st.caption(
+                        f"{len(history)} / {MAX_FOLLOWUPS} manual AI requests used "
+                        "for this turn. These responses reuse existing research, "
+                        "without another web search, but still consume model tokens."
+                    )
+                    options = [
+                        str(row.get("player")) for row in top_five if row.get("player")
+                    ]
+                    if len(options) >= 2:
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            first = st.selectbox("First candidate", options,
+                                                 key="copilot_compare_a")
+                        with c2:
+                            second = st.selectbox(
+                                "Second candidate", options,
+                                index=1, key="copilot_compare_b",
+                            )
+                        if st.button("Compare these players", key="copilot_compare_button",
+                                     disabled=len(history) >= MAX_FOLLOWUPS):
+                            try:
+                                query = compare_question(first, second, context)
+                                ask_copilot(st.session_state, key=question_key,
+                                            context=context, question=query)
+                                st.rerun(scope="fragment")
+                            except Exception as exc:
+                                st.error(f"Comparison unavailable: {str(exc)[:180]}")
+                    question = st.text_area(
+                        "Ask about this pick",
+                        key="picky_copilot_question",
+                        placeholder="Why would I take another SG when C is thinner?",
+                        max_chars=500, height=80,
+                    )
+                    if st.button("Ask Picky", key="picky_ask_copilot",
+                                 disabled=len(history) >= MAX_FOLLOWUPS or
+                                 len(question.strip()) < 3):
+                        try:
+                            ask_copilot(st.session_state, key=question_key,
+                                        context=context, question=question)
+                            st.session_state["picky_copilot_question"] = ""
+                            st.rerun(scope="fragment")
+                        except Exception as exc:
+                            st.error(f"AI follow-up unavailable: {str(exc)[:180]}")
+                    for turn in reversed(history[-4:]):
+                        st.markdown("**You:** " + escape_html(turn["question"]))
+                        st.write(turn["answer"])
+                    if len(history) >= MAX_FOLLOWUPS:
+                        st.warning("This turn has reached the Copilot follow-up limit.")
+            elif not is_complete:
+                st.caption("Unlock AI Scout with your passkey to enable optional "
+                           "follow-up questions and comparisons.")
+
         # 4. Recent draft selections and *actual* lowest ADP players.
         st.markdown("### Draft board & ADP leaders")
         recent_col, adp_col = st.columns(2, gap="large")

@@ -34,7 +34,7 @@ class RoleDepthTests(unittest.TestCase):
         center_note = need_note(["C"], counts, targets, True,
                                 "Fills your open C slot.")
         self.assertIn("6 SG-eligible", sg_note)
-        self.assertNotIn("no SG", sg_note.lower())
+        self.assertNotIn("no sg", sg_note.lower())
         self.assertIn("2 C-eligible", center_note)
         self.assertIn("SG (6 eligible)", center_note)
         self.assertGreater(need_rank_delta(["SG"], counts, targets, True),

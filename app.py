@@ -1211,8 +1211,9 @@ def live_dashboard(active_page: str):
                         )
                         with face_col:
                             st.html(
+                                '<div class="fx-scout-avatar-wrap">'
                                 '<span class="fx-scout-photo fx-scout-photo-fallback">'
-                                f'{escape_html(initials)}</span>'
+                                f'{escape_html(initials)}</span></div>'
                             )
                         with summary_col:
                             st.markdown(f"**{rank_no}. {escape_html(player_name_text)}**")
@@ -1239,7 +1240,7 @@ def live_dashboard(active_page: str):
                                 st.caption("✦ AI Scout recommendation")
                         with action_col:
                             if st.button(
-                                "Full details", key=f"scout_detail_{rank_no}_{player_id}",
+                                "View details", key=f"scout_detail_{rank_no}_{player_id}",
                                 icon=":material/open_in_full:", use_container_width=True,
                             ):
                                 selected_detail = (candidate, player_ai, timing, source_list)

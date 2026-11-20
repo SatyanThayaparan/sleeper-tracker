@@ -98,6 +98,17 @@ def research_allowed(session, key):
             and session.get("ai_scout_session_calls", 0) < MAX_PER_SESSION)
 
 
+def recovery_allowed(session, key):
+    """Permit ONE extra explicitly confirmed paid recovery per browser session.
+
+    Automatic research never uses this permission. Do not reset counters:
+    the extra attempt is transparent and auditable in session state.
+    """
+    if not key or session.get("ai_scout_recovery_used", False):
+        return False
+    return not research_allowed(session, key)
+
+
 def safe_source_urls(response):
     """Get URLs from provider citation annotations, not model-invented links."""
     sources = []
@@ -417,9 +428,14 @@ def record_auto_attempt(session, key):
 
 
 def use_scout(session, key, candidates, *, open_slots, research_fn=run_scout,
-              context=None):
-    """One explicit paid request; record unsuccessful attempts to prevent loops."""
-    if not research_allowed(session, key):
+              context=None, recovery=False):
+    """Record paid attempts before request; explicit recovery is capped once/session."""
+    if recovery:
+        if not recovery_allowed(session, key):
+            raise RuntimeError("The one-time AI Scout recovery request is unavailable.")
+        # Mark this before any network call, including provider failures.
+        session["ai_scout_recovery_used"] = True
+    elif not research_allowed(session, key):
         raise RuntimeError("AI Scout request limit reached for this session or pick.")
     counts = session.setdefault("ai_scout_call_counts", {})
     counts[key] = counts.get(key, 0) + 1

@@ -7,11 +7,13 @@
 ## Features
 
 - Dark 60/30/10 dashboard (emerald accent)
-- Sidebar navigation: Overview, Draft Board, Rankings, Reports, Settings, Help
+- Sidebar navigation: Overview, My Team, Draft Board, Rankings, Reports, AI Lab, Settings, Help
 - Settings & Connections for draft link, projections CSV, and ranking weights
 - Live draft metrics, top recommendations, sleeper / fade cards
 - Auto-refresh picks while the browser session is open
-- Lock-In-friendly projection template included
+- Lock-In opportunity estimates from real league scoring inputs + user-supplied player volatility, schedule and availability
+- Opt-in AI Scout and contextual Ask Picky / 2-player comparisons; manually paid requests, no additional web search for follow-ups
+- AI Lab: per-turn observed shortlist survival, retrospective ADP baseline, CSV export
 
 ## Tech stack
 
@@ -64,7 +66,7 @@ No API keys are required for read-only Sleeper draft polling. Apps on Community 
 ## Usage
 
 - Enter a draft ID/URL, or use the configured draft already in the app.
-- Provide a CSV with `player,projected_fppg` or `player_id,projected_fppg` (optional: `upside_fppg`, `floor_fppg`, `games_per_week`, `availability_pct`).
+- Provide a CSV with `player,projected_fppg` or `player_id,projected_fppg` (optional: `upside_fppg`, `floor_fppg`, `stdev_fppg`, `games_per_week`, `availability_pct`).
 - Use `lockin_projection_template.csv` as a starting template.
 - The app never makes picks for you; it only reads league/draft data.
 
@@ -93,6 +95,26 @@ Local secrets stay out of git (`.env` and `.streamlit/secrets.toml` are gitignor
 5. On Streamlit Community Cloud, add them under **App settings → Secrets**
 
 `config.py` / `ai.py` load these values. Never commit real keys or a private draft URL.
+
+## Evaluating Picky's AI roadmap
+
+### Lock-In scoring (Phase 3)
+
+A valid imported projection should provide **league-scored per-game FPPG**, either `stdev_fppg` or both `floor_fppg` and `upside_fppg`, `games_per_week`, and `availability_pct`. The `upside_fppg` and `floor_fppg` values are treated as rough 90th and 10th percentile game outcomes; if that assumption does not match your data, provide `stdev_fppg` instead.
+
+When *complete* per-game stat projections are supplied for all applicable Sleeper scoring categories, the model can apply the league's actual scoring settings. Unsupported scoring bonuses are **not silently dropped**: an imported fully league-scored FPPG is required instead. Without the needed inputs, the model reports missing data and **does not convert ADP into fantasy points**.
+
+The estimate is an optimistic *expected best available game* for a matchup week. Actual Sleeper Lock-In requires timely choices after real games and has fallback rules; the number is **not** a guarantee or a validated prediction of your lock decision. When every eligible projected player has comparable model inputs, Picky can incorporate opportunity into its score while preserving the existing injury, news and roster fit adjustments. With incomplete coverage, the ranking remains unchanged.
+
+### Ask Picky (Phase 4)
+
+On Overview, unlock AI Scout with the existing passkey and open **Ask Picky · AI Copilot**. Compare two available candidates or type a question. **Only clicking Ask/Compare incurs a new model request**; follow-ups reuse the existing Scout report (when available), have no new web-search tool, are limited to eight attempts per draft turn and are scoped to your current browser session. They can be wrong when relevant evidence is missing or stale.
+
+### AI Lab (Phase 5)
+
+Open **AI Lab** in the sidebar. During your on-clock pick Picky records a shortlist snapshot in your current browser session, then checks whether shortlisted players were actually selected before your next estimated pick. You can export observed outcomes. No snapshot exists for past turns when the app was closed.
+
+The retrospective ADP replay compares **today's** ADP order with the observed pick history. It may contain hindsight bias, is not an unbiased historical backtest, and **cannot validate Lock-In scoring quality**. Use it to find rough selection patterns and design future evaluation experiments; historical scoring and point outcomes require separate reliable game-level archives.
 
 ## Notes
 

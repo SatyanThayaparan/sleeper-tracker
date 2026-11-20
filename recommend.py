@@ -503,6 +503,8 @@ def score_candidates(frame, origin, players, roster_ids, slots, articles, has_us
             'adp_url': getattr(row, 'adp_url', '') or '',
             'roles': roles,
             'role_have': dict(counts) if has_user else {},
+            'eligible_depth': {role: counts.get(role, 0) for role in roles}
+                if has_user else {},
         })
     scored.sort(key=lambda item: item['score'], reverse=True)
     return scored

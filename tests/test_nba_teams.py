@@ -44,10 +44,44 @@ class NBATeamTests(unittest.TestCase):
         self.assertEqual(result["divisions"]["Atlantic"], 3)
         self.assertEqual(result["divisions"]["Pacific"], 1)
 
+    def test_multiple_eligible_roles_per_player(self):
+        # Player A: PG/SG/SF; Player B: SF/PF/C => 1,1,2,1,1.
+        players = {
+            "a": {"team": "TOR", "fantasy_positions": ["PG", "SG", "SF"]},
+            "b": {"team": "LAL", "fantasy_positions": ["SF", "PF", "C"]},
+        }
+        state = {"lineup": [
+            {"slot": "PG", "player_id": "a"},
+            {"slot": "UTIL", "player_id": "b"},
+            {"slot": "C", "player_id": None},
+        ]}
+        result = roster_breakdown(["a", "b"], players, state)
+        self.assertEqual(result["eligible_counts"],
+                         {"PG": 1, "SG": 1, "SF": 2, "PF": 1, "C": 1})
+        self.assertEqual(result["eligible_covered_count"], 5)
+        self.assertEqual(result["eligible_role_total"], 6)
+        # Only the PG starting slot is assigned; utility doesn't count here.
+        self.assertEqual(result["covered_count"], 1)
+
+    def test_eligibility_includes_bench_and_deduplicates(self):
+        players = {
+            "starter": {"fantasy_positions": ["PG", "PG", "SG"]},
+            "bench": {"fantasy_positions": ["SF", "PF", "C"]},
+        }
+        state = {"lineup": [{"slot": "PG", "player_id": "starter"}]}
+        result = roster_breakdown(
+            ["starter", "starter", "bench"], players, state
+        )
+        self.assertEqual(result["eligible_counts"],
+                         {"PG": 1, "SG": 1, "SF": 1, "PF": 1, "C": 1})
+        self.assertEqual(result["eligible_role_total"], 5)
+
     def test_no_players_and_unknown_franchises(self):
         empty = roster_breakdown([], {}, {"lineup": []})
         self.assertEqual(empty["covered_count"], 0)
         self.assertEqual(dict(empty["teams"]), {})
+        self.assertEqual(empty["eligible_counts"],
+                         {"PG": 0, "SG": 0, "SF": 0, "PF": 0, "C": 0})
         result = roster_breakdown(["1"], {"1": {"team": "FA"}},
                                   {"lineup": [{"slot": "PG", "player_id": "1"}]})
         self.assertEqual(result["covered_count"], 1)

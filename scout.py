@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 from ai import get_openai_client
 from draft_strategy import timing_for_shortlist
 from expert_research import verified_expert_evidence, report_research_summary
+from research_pipeline import research_player
 
 DEFAULT_MODEL = "gpt-4.1-mini"
 CACHE_TTL_SECONDS = 20 * 60
@@ -458,7 +459,7 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
               model=DEFAULT_MODEL, client=None, context=None):
     """Research each shortlisted player, then assemble a complete comparison.
 
-    One *explicit* button action may cause up to five paid web-search requests,
+    One *explicit* button action may cause five web-search calls PLUS five\n    analysis model calls; both stages may be billable.
     one per player. Failed individual searches don't discard other reports.
     We do not treat a player without independently cited evidence as researched.
     """
@@ -473,32 +474,48 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
     # completion often returned just one player and no useful news.
     all_players, all_sources, failures = [], [], []
     seen_urls = set()
-    per_player = {}
+    shared_client = client if client is not None else get_openai_client()
+    if shared_client is None:
+        raise RuntimeError("OPENAI_API_KEY is not configured in Streamlit secrets.")
     for row in candidates:
         name = str(row.get("player") or "")
         try:
-            result = _run_scout_batch(
-                [row], open_slots=open_slots, scoring_format=scoring_format,
-                model=model, client=client, context=context,
+            # Stage 1 is a standalone web search, followed by no-web
+            # structured analysis. Separate searches avoid crowding one
+            # five-player prompt with incompatible claims and citations.
+            result = research_player(
+                shared_client, row, open_slots=open_slots,
+                context=context, model=model,
             )
+            player = result["player"]
+            if player.get("name") != name:
+                raise RuntimeError("Returned research did not match the player.")
+            all_players.append(player)
+            for source in result.get("sources", []):
+                url = source.get("url")
+                if url and url not in seen_urls:
+                    seen_urls.add(url)
+                    all_sources.append(source)
         except Exception as exc:
+            # Every candidate remains visible, but no fabricated article or
+            # AI assessment is offered for a failed request.
             failures.append({"player": name, "error": str(exc)[:200]})
-            continue
-        per_player[name] = result
-        for player in (result.get("report") or {}).get("players", []):
-            if player.get("name") == name:
-                all_players.append(player)
-        for source in result.get("sources", []):
-            url = source.get("url")
-            if url and url not in seen_urls:
-                seen_urls.add(url)
-                all_sources.append(source)
+            all_players.append({
+                "name": name,
+                "role_outlook": "Outside research unavailable",
+                "recent_findings": (
+                    "The source search or analysis could not be completed. "
+                    "Use Picky's existing ranking, and check current player news."
+                ),
+                "availability_risk": "Not verified",
+                "draft_fit": str(row.get("roster") or "")[:320],
+                "why_now": "Use ADP and current roster fit for this pick.",
+                "expert_take": "",
+                "evidence_date": "Unverified",
+                "evidence": [], "expert_rankings": [],
+                "verified_expert_evidence": [],
+            })
 
-    if not all_players:
-        raise RuntimeError(
-            "No usable per-player scouting results were returned. "
-            "Check OpenAI web-search access and provider errors."
-        )
     covered = {p.get("name") for p in all_players}
     sourced = {p.get("name") for p in all_players
                if p.get("verified_expert_evidence")}
@@ -539,7 +556,7 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
                              if row.get("player") not in sourced],
         "has_source_backed_research": bool(sourced),
         "research_failures": failures,
-        "requests_made": len(candidates),
+        "requests_made": len(candidates) * 2,
     }
 
 

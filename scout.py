@@ -68,6 +68,29 @@ def cache_entry(session, key, now=None):
     return None
 
 
+def cached_report_matches(entry, candidates):
+    """A pre-turn expert report only applies to the exact current shortlist.
+
+    Re-ranking or replacing candidates after draft picks makes earlier
+    player-specific comparisons stale, even if the owner's next pick number
+    has not changed.
+    """
+    if not isinstance(entry, dict):
+        return False
+    wanted = {
+        str(row.get("player") or "") for row in candidates
+        if isinstance(row, dict) and row.get("player")
+    }
+    if not wanted:
+        return False
+    stored = entry.get("candidate_names")
+    if stored is None:
+        report = entry.get("report") or {}
+        stored = [p.get("name") for p in report.get("players", [])
+                  if isinstance(p, dict)] if isinstance(report, dict) else []
+    return set(str(name) for name in stored) == wanted
+
+
 def research_allowed(session, key):
     """Local per-browser budget guard. Hard project budget needs platform controls."""
     counts = session.get("ai_scout_call_counts", {})
@@ -366,13 +389,16 @@ def turn_research_key(draft_id, user_id, pick_number):
 
 
 def auto_research_due(session, key, *, on_clock, unlocked, configured,
-                      candidate_count, draft_active):
+                      candidate_count, draft_active, candidates=None):
     """Research at most once automatically per turn, only with explicit unlock."""
     return bool(
         on_clock and unlocked and configured and draft_active
         and candidate_count > 0 and key
         and key not in session.get("ai_scout_auto_attempted", set())
-        and cache_entry(session, key) is None
+        and (cache_entry(session, key) is None or (
+            candidates is not None and not cached_report_matches(
+                cache_entry(session, key), candidates
+            )))
         and research_allowed(session, key)
     )
 
@@ -394,5 +420,9 @@ def use_scout(session, key, candidates, *, open_slots, research_fn=run_scout,
     if context is not None:
         kwargs["context"] = context
     result = research_fn(candidates, **kwargs)
+    if isinstance(result, dict):
+        result["candidate_names"] = [
+            str(row.get("player") or "") for row in candidates
+        ]
     session.setdefault("ai_scout_cache", {})[key] = result
     return result

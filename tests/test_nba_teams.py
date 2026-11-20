@@ -1,11 +1,28 @@
 """No-network checks for NBA franchises, conferences and positional coverage."""
 import unittest
+from pathlib import Path
 from nba_teams import (
     FRANCHISES, DIVISIONS, nba_team, nba_conference_division, roster_breakdown
 )
 
 
 class NBATeamTests(unittest.TestCase):
+    def test_role_coverage_is_one_shared_panel(self):
+        """Both team pages use the same renderer, with a single role metric."""
+        source = (Path(__file__).resolve().parents[1] / "app.py").read_text(
+            encoding="utf-8"
+        )
+        block = source.split("def render_team_breakdown(", 1)[1].split(
+            "@st.dialog(", 1
+        )[0]
+        self.assertEqual(block.count("Role coverage</span>"), 1)
+        self.assertNotIn("Starting five covered</span>", block)
+        self.assertNotIn("Total eligible position coverage</span>", block)
+        self.assertIn('snapshot["eligible_covered_count"]', block)
+        self.assertIn("eligible_chips", block)
+        self.assertIn('fx-team-pos-filled', block)
+        self.assertIn('fx-team-pos-open', block)
+
     def test_all_30_teams_in_exactly_one_division(self):
         self.assertEqual(len(FRANCHISES), 30)
         all_members = [team for teams in DIVISIONS.values() for team in teams]

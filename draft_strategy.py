@@ -18,7 +18,7 @@ def _adp(value):
 
 
 def evaluate_pick_timing(candidate, *, current_pick=None, following_pick=None,
-                         open_slots=()):
+                         open_slots=(), opponent=None):
     """Assess whether postponing a candidate to a later pick seems risky.
 
     Returns source-labeled deterministic observations, *not* calibrated odds.
@@ -57,6 +57,20 @@ def evaluate_pick_timing(candidate, *, current_pick=None, following_pick=None,
         level = "lower"
         reason = (f"Blended ADP {adp:.1f} is later than your following estimated "
                   f"pick #{next_pick}, but availability is not guaranteed.")
+    # Layer observed opposing roster needs on top of the ADP assessment.
+    # Other teams can choose anyone: don't claim exact probabilities.
+    opponent = opponent if isinstance(opponent, dict) else {}
+    contest = int(opponent.get("matching_picks") or 0)
+    separate_teams = int(opponent.get("matching_teams") or 0)
+    if opponent.get("has_roster_context") and contest >= 2 and separate_teams >= 2:
+        if level == "moderate":
+            level = "elevated"
+            reason += " Several opponents have open eligible positions before your next pick."
+        elif level == "lower":
+            level = "moderate"
+            reason += " Opposing roster needs suggest competition despite later ADP."
+    elif opponent.get("has_roster_context") and contest >= 1 and level != "unknown":
+        reason += " At least one opponent could target the same position."
     return {
         "risk": level,
         "reason": reason,
@@ -65,16 +79,18 @@ def evaluate_pick_timing(candidate, *, current_pick=None, following_pick=None,
         "fills": fills,
         "position_note": (f"Eligible for open slot(s): {', '.join(dict.fromkeys(fills))}."
                           if fills else "Does not directly fill an open starting slot."),
-        "basis": "Blended ADP and estimated draft order; not a probability forecast.",
+        "basis": "Blended ADP, estimated draft order and opponents' positional needs; not a probability forecast.",
+        "opponent_context": opponent,
     }
 
 
 def timing_for_shortlist(candidates, *, current_pick=None, following_pick=None,
-                         open_slots=()):
+                         open_slots=(), opponent_by_player=None):
     return {
         str(p.get("player")): evaluate_pick_timing(
             p, current_pick=current_pick, following_pick=following_pick,
-            open_slots=open_slots
+            open_slots=open_slots,
+            opponent=(opponent_by_player or {}).get(str(p.get("player"))),
         )
         for p in candidates
     }

@@ -859,6 +859,97 @@ section[data-testid="stSidebar"] [class*="st-key-nav_"] button:focus-visible {
   }
 }
 
+/* Compact AI Scout comparison: five rows visible without long page scrolling. */
+[class*="st-key-ai_candidate_"] [data-testid="stVerticalBlockBorderWrapper"] {
+  padding: 8px 12px !important;
+  border-radius: 12px !important;
+}
+[class*="st-key-ai_candidate_"] [data-testid="stVerticalBlock"] {
+  gap: 2px !important;
+}
+[class*="st-key-ai_candidate_"] [data-testid="stMarkdownContainer"] p,
+[class*="st-key-ai_candidate_"] [data-testid="stCaptionContainer"] {
+  margin: 0 !important;
+  line-height: 1.25 !important;
+}
+[class*="st-key-ai_candidate_"] [data-testid="stCaptionContainer"] p {
+  font-size: 11px !important;
+}
+[class*="st-key-ai_candidate_"] button {
+  min-height: 36px !important;
+  border-radius: 9px !important;
+  font-size: 12px !important;
+  padding: 6px 10px !important;
+  white-space: nowrap;
+}
+.fx-scout-one-liner {
+  font-size: 12px;
+  line-height: 1.3;
+  color: #E1EDE5;
+  margin: 2px 0 3px;
+  overflow-wrap: anywhere;
+}
+.fx-scout-bottom-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: #A1B3C1;
+  margin-top: 4px;
+}
+.fx-scout-bottom-line .fx-wait-badge {
+  font-size: 9px;
+  line-height: 1.1;
+  padding: 4px 7px;
+  white-space: nowrap;
+}
+.fx-scout-photo {
+  display: block;
+  width: 45px;
+  height: 45px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #263B35;
+  color: #7DE4AD;
+  flex-shrink: 0;
+}
+.fx-scout-photo-fallback {
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+}
+div[data-testid="stDialog"] [role="dialog"] {
+  animation: fx-scout-modal-enter 180ms ease-out both;
+}
+@keyframes fx-scout-modal-enter {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  div[data-testid="stDialog"] [role="dialog"] { animation: none; }
+}
+@media (max-width: 760px) {
+  [class*="st-key-ai_candidate_"] [data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap !important;
+  }
+  [class*="st-key-ai_candidate_"] [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+  }
+  [class*="st-key-ai_candidate_"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:first-child {
+    flex: 0 0 39px !important;
+  }
+  [class*="st-key-ai_candidate_"] [data-testid="stHorizontalBlock"] > [data-testid="column"]:last-child {
+    flex: 0 0 100px !important;
+  }
+  .fx-scout-photo { width: 37px; height: 37px; }
+  .fx-scout-one-liner { font-size: 11px; }
+  .fx-scout-bottom-line { font-size: 10px; }
+}
+
 /* Picky AI Scout — highlighted recommendation and evidence-first decision cards. */
 [class*="st-key-scout_recommended"] [data-testid="stVerticalBlockBorderWrapper"] {
   border: 1px solid rgba(56,185,121,.68) !important;

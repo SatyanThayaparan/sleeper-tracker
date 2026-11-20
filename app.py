@@ -13,7 +13,7 @@ from adp import ADP_URL, fetch_adp_rows, match_adp
 from recommend import build_recommendations
 from roster import assign_lineup, chronological_roster, next_user_picks, top_five_for_pick
 from ai import openai_configured, get_scout_access_code, scout_access_granted
-from draft_strategy import evaluate_pick_timing
+from draft_strategy import evaluate_pick_timing, player_headshot_url
 from scout import (cache_entry, research_key, research_allowed, use_scout,
                    turn_research_key, auto_research_due, record_auto_attempt,
                    MAX_PER_SESSION, CACHE_TTL_SECONDS)
@@ -390,6 +390,54 @@ def render_roster_grid(roster_state, players, picks):
         '</section></div>',
     )
 
+
+
+
+@st.dialog("Player scouting details", width="large")
+def show_scout_player_details(candidate, player_ai, timing, source_list):
+    """Open an accessible modal without repeating the full specs on the page."""
+    name = str(candidate.get("player") or "Player")
+    st.markdown(f"### {escape_html(name)}")
+    st.caption(
+        f'{candidate.get("position") or "Position unknown"} · '
+        f'{candidate.get("team") or "Team unknown"} · '
+        f'Sleeper search rank: {candidate.get("sleeper_search_rank") or "—"} · '
+        f'Blended ADP: {candidate.get("blend_adp") if candidate.get("blend_adp") is not None else "—"}'
+    )
+    st.markdown("#### Why this player?")
+    st.write(player_ai.get("draft_fit") or candidate.get("roster") or timing["position_note"])
+    st.markdown("#### Draft now or wait?")
+    st.write(timing["reason"])
+    if player_ai.get("why_now"):
+        st.write(player_ai["why_now"])
+    st.markdown("#### NBA scouting report")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.caption("Opportunity and role")
+        st.write(player_ai.get("role_outlook") or "Not verified")
+    with col2:
+        st.caption("Injury and availability")
+        st.write(player_ai.get("availability_risk") or candidate.get("injury") or "Not verified")
+    st.caption("Recent findings")
+    st.write(player_ai.get("recent_findings") or "No player-specific report verified yet.")
+    evidence = player_ai.get("evidence") or []
+    st.markdown("#### Supporting articles")
+    if evidence:
+        for proof in evidence:
+            if isinstance(proof, dict) and proof.get("source_url"):
+                with st.container(border=True):
+                    st.write(proof.get("claim") or "Source finding")
+                    st.caption("Publication date: " + str(proof.get("reported_date") or "Unverified"))
+                    st.link_button(str(proof.get("source_title") or "Read article"), proof["source_url"])
+    else:
+        st.info("No independently cited player-specific reports yet. Verify the news before drafting.")
+    if source_list:
+        with st.expander("Other sources cited by AI Scout"):
+            for source in source_list:
+                st.link_button(str(source.get("title") or "Article"), source["url"])
+    st.caption("ADP wait risk is not a calibrated probability. Picky never submits a draft pick.")
+    if st.button("Close details", use_container_width=True, key="close_scout_dialog"):
+        st.rerun()
 
 
 def render_scout_report(entry, candidates):
@@ -1058,6 +1106,7 @@ def live_dashboard(active_page: str):
             st.markdown("#### Top 5 available options")
             if top_five:
                 ai_report = None
+                current_entry = None
                 if (my_user_id and upcoming and
                         st.session_state.get("scout_unlocked", False)):
                     current_key = turn_research_key(draft_id, my_user_id, upcoming[0])
@@ -1075,83 +1124,65 @@ def live_dashboard(active_page: str):
                     for row in (ai_report or {}).get("players", [])
                     if isinstance(row, dict)
                 }
+                selected_detail = None
                 for rank_no, candidate in enumerate(top_five, 1):
                     player_name_text = str(candidate.get("player") or "Player")
                     player_ai = ai_players.get(player_name_text, {})
+                    timing = evaluate_pick_timing(
+                        candidate, current_pick=next_pick,
+                        following_pick=following_pick,
+                        open_slots=roster_state["open_slots"] if roster_state else [],
+                    )
+                    adp = candidate.get("blend_adp")
+                    search_rank = candidate.get("sleeper_search_rank")
+                    risk_label = {
+                        "elevated": "Elevated wait risk", "moderate": "Moderate wait risk",
+                        "lower": "Lower wait risk", "unknown": "Wait risk unknown",
+                    }[timing["risk"]]
+                    player_id = str(candidate.get("player_id") or "")
+                    photo = player_headshot_url(players.get(player_id, {}), player_id)
+                    source_list = (current_entry or {}).get("sources") or []
                     with st.container(border=True, key=f"ai_candidate_{rank_no}"):
-                        left, right = st.columns([4, 1])
-                        with left:
-                            st.markdown(f"**{rank_no}. {escape_html(player_name_text)}**")
-                            st.caption(f"{candidate.get('position') or '—'} · "
-                                       f"{candidate.get('team') or '—'}")
-                        with right:
-                            if player_name_text == (ai_report or {}).get("recommended_player"):
-                                st.markdown(":green[**AI PICK**]")
-                        sleeper_rank = candidate.get("sleeper_search_rank")
-                        adp = candidate.get("blend_adp")
-                        metrics = []
-                        if sleeper_rank is not None:
-                            metrics.append(f"Sleeper search rank #{sleeper_rank} (not fantasy rank)")
-                        if adp is not None:
-                            metrics.append(f"Blended ADP {float(adp):.1f}")
-                        if metrics:
-                            st.caption(" · ".join(metrics))
-                        timing = evaluate_pick_timing(
-                            candidate,
-                            current_pick=next_pick,
-                            following_pick=following_pick,
-                            open_slots=roster_state["open_slots"] if roster_state else [],
+                        face_col, summary_col, action_col = st.columns(
+                            [0.5, 5, 1.2], vertical_alignment="center", gap="small"
                         )
-                        risk_text = {
-                            "elevated": "ELEVATED WAIT RISK",
-                            "moderate": "MODERATE WAIT RISK",
-                            "lower": "LOWER WAIT RISK",
-                            "unknown": "WAIT RISK UNKNOWN",
-                        }[timing["risk"]]
-                        st.html(
-                            '<div class="fx-scout-signals">'
-                            f'<span class="fx-wait-badge fx-wait-{timing["risk"]}">'
-                            f'{risk_text}</span>'
-                            '<span class="fx-scout-reason-label">WHY THIS PICK</span>'
-                            '</div>'
-                        )
-                        st.write(
-                            player_ai.get("draft_fit")
-                            or candidate.get("roster")
-                            or timing["position_note"]
-                        )
-                        st.caption(timing["reason"])
-                        if player_ai:
-                            st.write(
-                                player_ai.get("why_now")
-                                or "No additional AI draft-timing context is available."
+                        with face_col:
+                            if photo:
+                                st.html(
+                                    '<img class="fx-scout-photo" alt="NBA player headshot" '
+                                    'loading="lazy" decoding="async" '
+                                    f'src="{escape_html(photo, quote=True)}">'
+                                )
+                            else:
+                                st.html('<span class="fx-scout-photo fx-scout-photo-fallback">🏀</span>')
+                        with summary_col:
+                            title = f"{rank_no}. {escape_html(player_name_text)}"
+                            st.markdown(f"**{title}**")
+                            details = [candidate.get("position") or "—", candidate.get("team") or "—"]
+                            if adp is not None:
+                                details.append(f"ADP {float(adp):.1f}")
+                            if search_rank is not None:
+                                details.append(f"Sleeper search #{search_rank}")
+                            st.caption(" · ".join(details))
+                            reason = (player_ai.get("draft_fit") or candidate.get("roster")
+                                      or timing["position_note"])
+                            st.html(
+                                f'<div class="fx-scout-one-liner">{escape_html(str(reason)[:155])}</div>'
+                                f'<div class="fx-scout-bottom-line">'
+                                f'<span class="fx-wait-badge fx-wait-{timing["risk"]}">'
+                                f'{escape_html(risk_label)}</span>'
+                                f'<span>{escape_html(timing["reason"][:165])}</span></div>'
                             )
-                            evidence = player_ai.get("evidence") or []
-                            with st.expander(
-                                f"Scouting evidence & reports ({len(evidence)} verified links)"
+                            if player_name_text == (ai_report or {}).get("recommended_player"):
+                                st.caption("✦ AI Scout recommendation")
+                        with action_col:
+                            if st.button(
+                                "Full details", key=f"scout_detail_{rank_no}_{player_id}",
+                                icon=":material/open_in_full:", use_container_width=True,
                             ):
-                                st.write("**NBA findings:** " + str(
-                                    player_ai.get("recent_findings")
-                                    or "No recent coverage verified."))
-                                st.write("**Role:** " + str(
-                                    player_ai.get("role_outlook") or "Unverified"))
-                                st.write("**Injury:** " + str(
-                                    player_ai.get("availability_risk") or "Unverified"))
-                                if evidence:
-                                    for proof in evidence:
-                                        st.markdown("**Finding:** " + str(proof["claim"]))
-                                        st.caption("Reported: " + str(
-                                            proof.get("reported_date") or "Date unverified"))
-                                        st.link_button(
-                                            str(proof.get("source_title") or "Read source"),
-                                            proof["source_url"],
-                                        )
-                                else:
-                                    st.info("No player-specific web-search citation could "
-                                            "be verified. Treat news claims as unconfirmed.")
-                        else:
-                            st.caption("AI news insight will appear after an authorized "
-                                       "research request for your pick.")
+                                selected_detail = (candidate, player_ai, timing, source_list)
+                if selected_detail is not None:
+                    show_scout_player_details(*selected_detail)
                 st.caption("These five are selected by Picky's ranking engine. "
                            "AI insights appear after current-pick research completes.")
 

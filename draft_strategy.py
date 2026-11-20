@@ -78,3 +78,22 @@ def timing_for_shortlist(candidates, *, current_pick=None, following_pick=None,
         )
         for p in candidates
     }
+
+
+def player_headshot_url(player_meta, sleeper_player_id=None):
+    """Lazy thumbnail from Sleeper CDN, with an NBA-ID option when provided.
+
+    Sleeper player IDs are not interchangeable with NBA player IDs, so URLs
+    from those two providers must be assembled independently.
+    """
+    if not isinstance(player_meta, dict):
+        return None
+    for key in ("nba_id", "nba_player_id"):
+        value = str(player_meta.get(key) or "").strip()
+        if value.isascii() and value.isdecimal() and 1 <= len(value) <= 10:
+            return ("https://cdn.nba.com/headshots/nba/latest/260x190/"
+                    + value + ".png")
+    value = str(sleeper_player_id or player_meta.get("player_id") or "").strip()
+    if value.isascii() and value.isdecimal() and 1 <= len(value) <= 10:
+        return "https://sleepercdn.com/content/nba/players/thumb/" + value
+    return None

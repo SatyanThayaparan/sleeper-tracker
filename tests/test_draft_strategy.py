@@ -1,7 +1,7 @@
 """No-network tests for the deterministic Draft Now vs Wait assessment."""
 import unittest
 
-from draft_strategy import evaluate_pick_timing, timing_for_shortlist
+from draft_strategy import evaluate_pick_timing, timing_for_shortlist, player_headshot_url
 
 
 class TimingTests(unittest.TestCase):
@@ -49,6 +49,20 @@ class TimingTests(unittest.TestCase):
             current_pick=45, following_pick=44, open_slots=["G"]
         )
         self.assertEqual(result["risk"], "unknown")
+
+    def test_headshot_only_with_a_valid_nba_id(self):
+        self.assertEqual(
+            player_headshot_url({"nba_id": "2544", "player_id": "irrelevant"}),
+            "https://cdn.nba.com/headshots/nba/latest/260x190/2544.png",
+        )
+        self.assertEqual(player_headshot_url({"player_id": "2544"}),
+                         "https://sleepercdn.com/content/nba/players/thumb/2544")
+        self.assertEqual(player_headshot_url({}, "1240"),
+                         "https://sleepercdn.com/content/nba/players/thumb/1240")
+        self.assertIsNone(player_headshot_url({"nba_id": "2544.png"}))
+        self.assertIsNone(player_headshot_url({"nba_id": "../2544"}))
+        self.assertIsNone(player_headshot_url({"nba_id": "0" * 20}))
+        self.assertIsNone(player_headshot_url({}))
 
     def test_supports_flexibility_and_shortlist(self):
         rows = [

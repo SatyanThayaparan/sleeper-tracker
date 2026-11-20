@@ -92,6 +92,70 @@ def evaluation_summary(rows):
     }
 
 
+
+def replay_adp_baseline(picks, adp_candidates, teams, *, max_scenarios=15):
+    """Retrospective *current ADP* baseline, NOT an unbiased historical backtest.
+
+    Select top-five still available at each sampled historic draft pick; observe
+    how many were taken by the next round. Today's ADP may reflect hindsight,
+    and this does not evaluate alternate draft outcomes or projected points.
+    """
+    try:
+        teams = int(teams)
+    except (TypeError, ValueError):
+        return []
+    if teams < 2:
+        return []
+    numbered = []
+    for pick in picks or []:
+        try:
+            number = int(pick.get("pick_no"))
+        except (AttributeError, ValueError, TypeError):
+            continue
+        if pick.get("player_id") is not None and number > 0:
+            numbered.append((number, str(pick["player_id"])))
+    numbered.sort()
+    if len(numbered) < teams + 2:
+        return []
+    rostered = {pid: number for number, pid in numbered}
+    sorted_baseline = sorted(
+        (row for row in adp_candidates
+         if row.get("player_id") and _valid_adp(row.get("blend_adp")) is not None),
+        key=lambda row: float(row["blend_adp"]),
+    )
+    if not sorted_baseline:
+        return []
+    snapshots = {}
+    for position in range(1, min(numbered[-1][0] - teams + 2,
+                                 1 + teams * max_scenarios), teams):
+        available = [
+            row for row in sorted_baseline
+            if rostered.get(str(row["player_id"]), float("inf")) >= position
+        ][:5]
+        if not available:
+            continue
+        snapshots[str(position)] = {
+            "draft_id": "retrospective ADP proxy",
+            "pick": position, "observed_pick": position,
+            "following_pick": position + teams,
+            "candidates": [{
+                "player_id": str(row["player_id"]),
+                "name": str(row.get("player") or row["player_id"]),
+                "rank": rank + 1,
+                "adp": row["blend_adp"], "lockin_points": None,
+            } for rank, row in enumerate(available)],
+        }
+    return evaluate_snapshots(snapshots, picks)
+
+
+def _valid_adp(value):
+    try:
+        number = float(value)
+        return number if 0 < number < float("inf") else None
+    except (ValueError, TypeError):
+        return None
+
+
 def rows_as_csv(rows):
     columns = ["draft", "upcoming_pick", "following_pick", "name",
                "shortlist_rank", "adp", "lockin_points", "actual_pick", "outcome"]

@@ -385,16 +385,33 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
             player, source_urls
         )
     covered = {row.get("name") for row in report["players"]}
-    if covered != allowed:
+    # Web research can return fewer than five complete player reports.
+    # Preserve valid findings rather than discarding a paid response; never
+    # invent missing player assessments or imply that all five were researched.
+    missing_players = [
+        str(row.get("player")) for row in candidates
+        if str(row.get("player")) not in covered
+    ]
+    if not covered:
         raise RuntimeError(
-            "AI Scout did not provide individual findings for every shortlisted player."
+            "AI Scout returned no usable player-specific research. "
+            "No AI report was saved."
         )
+    if report.get("recommended_player") not in covered:
+        # An unresearched name is not a supportable AI recommendation.
+        # Keep that candidate in the deterministic ranking only.
+        report["recommended_player"] = None
+        report["why_this_pick"] = ""
+        report["confidence"] = "low"
     return {
         "report": report,
         "research_quality": report_research_summary(report),
         "sources": actual_sources,
         "model": model,
         "timestamp": time.time(),
+        "covered_players": sorted(covered),
+        "missing_players": missing_players,
+        "partial_report": bool(missing_players),
     }
 
 

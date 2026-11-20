@@ -63,6 +63,10 @@ class PipelineTests(unittest.TestCase):
         )
         self.assertEqual(normalized_source_url("ftp://example.org/a"), "")
         self.assertEqual(normalized_source_url("https://localhost/admin"), "")
+        self.assertNotEqual(
+            normalized_source_url("https://espn.com/view?id=123&utm_source=a"),
+            normalized_source_url("https://espn.com/view?id=456"),
+        )
 
     def test_collects_sources_from_action_and_inline_annotations(self):
         response = {
@@ -81,6 +85,7 @@ class PipelineTests(unittest.TestCase):
         sources = extract_search_sources(response)
         self.assertEqual(len(sources), 2)
         self.assertEqual([s["id"] for s in sources], ["S1", "S2"])
+        self.assertEqual(sources[0]["title"], "NBA report")
 
     def test_independent_web_search_then_non_web_analysis(self):
         fake = FakeClient()

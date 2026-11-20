@@ -14,6 +14,7 @@ from recommend import build_recommendations
 from roster import assign_lineup, chronological_roster, next_user_picks, top_five_for_pick
 from ai import openai_configured, get_scout_access_code, scout_access_granted
 from draft_strategy import evaluate_pick_timing
+from recommend import role_counts
 from opponent_draft import opponent_context_for_candidate
 from nba_teams import roster_breakdown, FRANCHISES
 from scout import (cache_entry, research_key, research_allowed, use_scout,
@@ -1128,6 +1129,7 @@ def live_dashboard(active_page: str):
                                         "current_pick": next_pick,
                                         "league_teams": teams,
                                         "opponent_by_player": opponent_by_player,
+                                        "roster_eligible_counts": role_counts(roster_ids, players),
                                     },
                                 )
                             except Exception as exc:
@@ -1170,6 +1172,7 @@ def live_dashboard(active_page: str):
                                                 "current_pick": next_pick,
                                                 "league_teams": teams,
                                                 "opponent_by_player": opponent_by_player,
+                                                "roster_eligible_counts": role_counts(roster_ids, players),
                                             },
                                         )
                                     except Exception as exc:

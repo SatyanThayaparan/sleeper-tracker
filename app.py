@@ -14,6 +14,7 @@ from recommend import build_recommendations
 from roster import assign_lineup, chronological_roster, next_user_picks, top_five_for_pick
 from ai import openai_configured, get_scout_access_code, scout_access_granted
 from draft_strategy import evaluate_pick_timing
+from opponent_draft import opponent_context_for_candidate
 from nba_teams import roster_breakdown, FRANCHISES
 from scout import (cache_entry, research_key, research_allowed, use_scout,
                    turn_research_key, auto_research_due, record_auto_attempt,
@@ -1040,6 +1041,30 @@ def live_dashboard(active_page: str):
                     players.get(str(candidate.get("player_id")), {}).get("search_rank")
                 )
             following_pick = upcoming[1] if len(upcoming) > 1 else None
+            # Sleeper reports current traded-pick ownership separately from
+            # original snake order. Cache it briefly; do not guess if missing.
+            traded_pick_data = None
+            if following_pick and owned_roster_ids and draft_status in ("drafting", "in_progress", "pre_draft", "predraft"):
+                try:
+                    traded_pick_data = api_get(
+                        f"draft/{quote(str(draft_id), safe='')}/traded_picks"
+                    )
+                    if not isinstance(traded_pick_data, list):
+                        traded_pick_data = None
+                except Exception:
+                    traded_pick_data = None
+            opponent_by_player = {}
+            if top_five:
+                opponent_by_player = {
+                    str(candidate.get("player")): opponent_context_for_candidate(
+                        candidate, picks=picks, draft=fresh_draft,
+                        players=players, slots=slots, current_pick=next_pick,
+                        following_pick=following_pick, teams=teams,
+                        my_roster_ids=owned_roster_ids,
+                        traded_picks=traded_pick_data,
+                    )
+                    for candidate in top_five
+                }
             if not top_five:
                 st.info("Waiting for available player rankings before scouting.")
             elif not my_user_id:
@@ -1102,6 +1127,7 @@ def live_dashboard(active_page: str):
                                         "following_pick": following_pick,
                                         "current_pick": next_pick,
                                         "league_teams": teams,
+                                        "opponent_by_player": opponent_by_player,
                                     },
                                 )
                             except Exception as exc:
@@ -1143,6 +1169,7 @@ def live_dashboard(active_page: str):
                                                 "following_pick": following_pick,
                                                 "current_pick": next_pick,
                                                 "league_teams": teams,
+                                                "opponent_by_player": opponent_by_player,
                                             },
                                         )
                                     except Exception as exc:
@@ -1189,6 +1216,7 @@ def live_dashboard(active_page: str):
                         candidate, current_pick=next_pick,
                         following_pick=following_pick,
                         open_slots=roster_state["open_slots"] if roster_state else [],
+                        opponent=opponent_by_player.get(player_name_text),
                     )
                     adp = candidate.get("blend_adp")
                     search_rank = candidate.get("sleeper_search_rank")

@@ -1216,28 +1216,39 @@ def live_dashboard(active_page: str):
                                 f'{escape_html(initials)}</span></div>'
                             )
                         with summary_col:
-                            st.markdown(f"**{rank_no}. {escape_html(player_name_text)}**")
                             metrics = [f"{nba_team} · Eligible: {eligibility}"]
                             if adp is not None:
                                 metrics.append(f"ADP {float(adp):.1f}")
                             if search_rank is not None:
                                 metrics.append(f"Sleeper search #{search_rank}")
-                            st.caption("  ·  ".join(metrics))
                             reason = (player_ai.get("draft_fit") or candidate.get("roster")
                                       or timing["position_note"])
                             extra = str(player_ai.get("why_now") or "").strip()
-                            # Keep one concise explanation and the draft urgency visible.
+                            is_ai_pick = (
+                                player_name_text ==
+                                (ai_report or {}).get("recommended_player")
+                            )
+                            # One actual HTML block with independently stacked rows;
+                            # separate Streamlit markdown/caption elements were
+                            # collapsing and visually overlapping at some widths.
                             st.html(
+                                '<div class="fx-scout-copy">'
+                                '<div class="fx-scout-title-line">'
+                                f'<strong class="fx-scout-player-name">'
+                                f'{rank_no}. {escape_html(player_name_text)}</strong>'
+                                + ('<span class="fx-scout-ai-label">✦ AI PICK</span>'
+                                   if is_ai_pick else '')
+                                + '</div>'
+                                f'<div class="fx-scout-meta">{escape_html(" · ".join(metrics))}</div>'
                                 f'<div class="fx-scout-one-liner">'
                                 f'{escape_html(str(reason)[:185])}</div>'
                                 f'<div class="fx-scout-bottom-line">'
                                 f'<span class="fx-wait-badge fx-wait-{timing["risk"]}">'
                                 f'{escape_html(risk_label)}</span>'
-                                f'<span>{escape_html((extra or timing["reason"])[:195])}</span>'
-                                '</div>'
+                                f'<span class="fx-scout-wait-explanation">'
+                                f'{escape_html((extra or timing["reason"])[:195])}</span>'
+                                '</div></div>'
                             )
-                            if player_name_text == (ai_report or {}).get("recommended_player"):
-                                st.caption("✦ AI Scout recommendation")
                         with action_col:
                             if st.button(
                                 "View details", key=f"scout_detail_{rank_no}_{player_id}",

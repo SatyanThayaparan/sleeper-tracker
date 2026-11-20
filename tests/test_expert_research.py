@@ -121,7 +121,7 @@ class IndividualResearchTests(unittest.TestCase):
                                      "kind": "Fantasy analysis",
                                      "source_url": f"https://nba.com/{name.replace(' ', '-')}",
                                      "publisher": "NBA.com", "claim": "Fantasy report",
-                                     "freshness": "Recent"
+                                     "freshness": "Recent", "age_days": 1
                                  }]}],
                 },
                 "sources": [{

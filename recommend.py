@@ -210,11 +210,15 @@ def specific_roles(positions):
 
 
 def role_counts(roster_ids, players):
+    """Eligible player depth at *every* core role, not only first-listed role.
+
+    A PG/SG player increases both PG and SG counts. A drafted player is counted
+    only once per role even if Sleeper repeats an eligible position.
+    """
     counts = {role: 0 for role in ROLES}
-    for pid in roster_ids:
-        roles = specific_roles(positions_of(players.get(str(pid), {})))
-        if roles:
-            counts[roles[0]] += 1
+    for pid in dict.fromkeys(str(value) for value in roster_ids):
+        for role in set(specific_roles(positions_of(players.get(pid, {})))):
+            counts[role] += 1
     return counts
 
 
@@ -242,8 +246,11 @@ def scarcest_role(roles, counts, targets):
 def need_rank_delta(roles, counts, targets, has_user):
     if not has_user or not roles:
         return 0
+    # Never penalize a multi-position player for their deepest position;
+    # evaluate the scarcest core role they could cover.
     role = scarcest_role(roles, counts, targets)
-    ratio = counts.get(role, 0) / max(targets.get(role, 0), 1)
+    depth = counts.get(role, 0)
+    ratio = depth / max(targets.get(role, 0), 1)
     if ratio == 0:
         return -18
     if ratio < 0.75:
@@ -252,7 +259,9 @@ def need_rank_delta(roles, counts, targets, has_user):
         return -6
     if ratio < 1.5:
         return 6
-    return 12
+    # Differentiates C depth 2 from SG depth 6, but caps the adjustment
+    # so the player's ADP/injury/news still dominate recommendations.
+    return 10 + min(18, 3 * max(0, depth - 1))
 
 
 def need_score_multiplier(roles, counts, targets, has_user, category, fit_bonus):
@@ -261,27 +270,46 @@ def need_score_multiplier(roles, counts, targets, has_user, category, fit_bonus)
     if not roles:
         return 1.0
     role = scarcest_role(roles, counts, targets)
-    ratio = counts.get(role, 0) / max(targets.get(role, 0), 1)
+    depth = counts.get(role, 0)
+    ratio = depth / max(targets.get(role, 0), 1)
     if ratio == 0:
         return 1 + fit_bonus / 100 * 2
     if ratio < 1:
         return 1 + fit_bonus / 100
     if ratio < 1.5:
         return 1.0
-    return 0.9
+    # Modest depth penalty that increases with surplus, never replacing
+    # the projection as the primary signal. A PG/SG player can fill either.
+    return max(0.91, 1.0 - 0.015 * max(1, depth - 1))
 
 
 def need_note(roles, counts, targets, has_user, fallback):
+    """Explain eligibility, lineup vacancies and relative depth separately."""
     if not has_user or not roles:
         return fallback
     role = scarcest_role(roles, counts, targets)
     have = int(counts.get(role, 0))
-    target = targets.get(role, 0)
+    other_positions = [
+        (pos, count) for pos, count in counts.items()
+        if pos not in roles and count > have
+    ]
+    deepest = max(other_positions, key=lambda pair: pair[1], default=None)
+    starter_gap = bool(fallback.startswith('Fills your open '))
     if have == 0:
-        return f'You have no {role} yet.'
-    if target and have < target:
-        return f'You have {have} {role}, and that role is not full.'
-    return f'You already have {have} {role}. Thinner roles rank higher.'
+        return f'No drafted players are eligible at {role} yet. {fallback}'
+    if deepest and deepest[1] - have >= 2:
+        comparison = (f'{role} depth is thinner than {deepest[0]} '
+                      f'({deepest[1]} eligible).')
+    else:
+        comparison = 'Consider projected points and injury risk alongside roster flexibility.'
+    if have >= 3 and not deepest:
+        note = (f'You already have {have} {role}-eligible players; this is '
+                'additional depth, not an uncovered role.')
+    else:
+        note = f'You have {have} {role}-eligible player{"s" if have != 1 else ""}.'
+    if starter_gap:
+        note += ' A projected starting slot is vacant, but you may already have eligible players.'
+    return f'{note} {comparison}'
 
 
 def fit_category(pid, roster_ids, players, slots, has_user):

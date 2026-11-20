@@ -61,8 +61,9 @@ def ask_copilot(session, *, key, context, question, completion_fn=chat_complete)
         raise ValueError("Question must contain 3–500 characters.")
     history = session.setdefault("picky_copilot_history", {})
     turns = history.setdefault(key, [])
-    if len(turns) >= MAX_FOLLOWUPS:
-        raise RuntimeError("AI Copilot's per-turn question limit has been reached.")
+    attempts = session.setdefault("picky_copilot_attempts", {})
+    if attempts.get(key, 0) >= MAX_FOLLOWUPS:
+        raise RuntimeError("AI Copilot's per-turn request limit has been reached.")
     # Request is manual. No browsing/web-search tools are exposed here.
     system = (
         "You are Picky, a concise Sleeper NBA Lock-In draft advisor. "
@@ -88,6 +89,8 @@ def ask_copilot(session, *, key, context, question, completion_fn=chat_complete)
             {"role": "assistant", "content": turn["answer"]},
         ])
     messages.append({"role": "user", "content": question})
+    # Count before the external call to prevent repeated paid retries.
+    attempts[key] = attempts.get(key, 0) + 1
     response = completion_fn(messages, model="gpt-4.1-mini",
                              temperature=0.2, max_tokens=650)
     answer = str(response or "").strip()

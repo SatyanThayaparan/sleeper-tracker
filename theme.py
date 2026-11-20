@@ -859,6 +859,50 @@ section[data-testid="stSidebar"] [class*="st-key-nav_"] button:focus-visible {
   }
 }
 
+/* Stable stack for player text: avoids Streamlit caption/name overlap. */
+[class*="st-key-ai_candidate_"] .fx-scout-copy {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  width: 100%;
+  min-width: 0;
+  gap: 5px !important;
+  padding: 4px 1px !important;
+  line-height: normal !important;
+}
+[class*="st-key-ai_candidate_"] .fx-scout-title-line {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 10px;
+  min-height: 22px; width: 100%; min-width: 0;
+}
+[class*="st-key-ai_candidate_"] .fx-scout-player-name {
+  display: inline-block; color: #F1F9F5; font-size: 15px;
+  font-weight: 760; line-height: 1.45; overflow-wrap: anywhere;
+}
+[class*="st-key-ai_candidate_"] .fx-scout-ai-label {
+  color: #73E4AB; font-size: 10px; font-weight: 800; white-space: nowrap;
+}
+[class*="st-key-ai_candidate_"] .fx-scout-meta {
+  display: block; color: #AFC0CD; font-size: 12px;
+  line-height: 1.45; overflow-wrap: anywhere;
+}
+[class*="st-key-ai_candidate_"] .fx-scout-copy .fx-scout-one-liner {
+  display: block; margin: 1px 0 0 !important; color: #E4F0E9;
+  font-size: 12px; line-height: 1.5;
+}
+[class*="st-key-ai_candidate_"] .fx-scout-copy .fx-scout-bottom-line {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 6px 9px; margin: 1px 0 0 !important; line-height: 1.45;
+}
+[class*="st-key-ai_candidate_"] .fx-scout-wait-explanation {
+  display: inline; color: #AFC0CD; font-size: 11px; line-height: 1.45;
+}
+@media (max-width: 760px) {
+  [class*="st-key-ai_candidate_"] .fx-scout-copy { gap: 4px !important; }
+  [class*="st-key-ai_candidate_"] .fx-scout-player-name { font-size: 13px; }
+  [class*="st-key-ai_candidate_"] .fx-scout-meta { font-size: 11px; }
+}
+
 /* Center the monogram in its entire column and increase visual weight. */
 .fx-scout-avatar-wrap {
   display: flex;

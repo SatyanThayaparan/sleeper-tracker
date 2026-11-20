@@ -1489,6 +1489,19 @@ def live_dashboard(active_page: str):
                             reason = (candidate.get("roster") or player_ai.get("draft_fit")
                                       or timing["position_note"])
                             extra = str(player_ai.get("why_now") or "").strip()
+                            verified_sources = player_ai.get("verified_expert_evidence") or []
+                            ranking_count = sum(
+                                entry.get("kind") == "Expert rankings / cheat sheet"
+                                for entry in verified_sources
+                            )
+                            news_count = len(verified_sources) - ranking_count
+                            expert_line = (
+                                f'Expert check: {ranking_count} cited ranking(s) · '
+                                f'{news_count} cited report(s)'
+                                if verified_sources else
+                                ('No verifiable expert sources for this player'
+                                 if ai_report else '')
+                            )
                             is_ai_pick = (
                                 player_name_text ==
                                 (ai_report or {}).get("recommended_player")
@@ -1512,7 +1525,11 @@ def live_dashboard(active_page: str):
                                 f'{escape_html(risk_label)}</span>'
                                 f'<span class="fx-scout-wait-explanation">'
                                 f'{escape_html((extra or timing["reason"])[:195])}</span>'
-                                '</div></div>'
+                                '</div>'
+                                + (f'<div class="fx-scout-expert-line">'
+                                   f'{escape_html(expert_line)}</div>'
+                                   if expert_line else '')
+                                + '</div>'
                             )
                         with action_col:
                             if st.button(

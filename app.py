@@ -1392,6 +1392,48 @@ def live_dashboard(active_page: str):
                         cached = None
                     if cached:
                         render_scout_report(cached, top_five)
+                        if (not cached.get("has_source_backed_research",
+                                           bool((cached.get("research_quality") or {}).get(
+                                               "total_verified_links")))
+                                and research_allowed(st.session_state, turn_key)):
+                            st.caption("The previous paid request returned no retrieved "
+                                       "player-specific sources. You may try once more "
+                                       "manually, but the next request also costs API credits.")
+                            consent = st.checkbox(
+                                "I authorize another paid web research request",
+                                key=f"scout_uncited_consent_{turn_key}",
+                            )
+                            if st.button(
+                                "Retry research with source retrieval",
+                                type="primary", disabled=not consent,
+                                key=f"scout_uncited_retry_{turn_key}",
+                            ):
+                                with st.status("Retrieving NBA and fantasy sources…",
+                                               expanded=True) as progress:
+                                    try:
+                                        use_scout(
+                                            st.session_state, turn_key, top_five,
+                                            open_slots=roster_state["open_slots"],
+                                            context={
+                                                "upcoming_pick": upcoming[0] if upcoming else None,
+                                                "following_pick": following_pick,
+                                                "current_pick": next_pick,
+                                                "league_teams": teams,
+                                                "opponent_by_player": opponent_by_player,
+                                                "roster_eligible_counts": role_counts(roster_ids, players),
+                                            },
+                                        )
+                                    except Exception as exc:
+                                        st.session_state.setdefault(
+                                            "ai_scout_turn_errors", {}
+                                        )[turn_key] = str(exc)[:500]
+                                        progress.update(label="Source retry failed",
+                                                        state="error", expanded=False)
+                                        st.error("Source retrieval failed: " + str(exc)[:300])
+                                    else:
+                                        progress.update(label="Research response saved",
+                                                        state="complete", expanded=False)
+                                        st.rerun(scope="fragment")
                     else:
                         failed = turn_key in st.session_state.get("ai_scout_turn_errors", {})
                         if failed:

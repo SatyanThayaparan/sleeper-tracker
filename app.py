@@ -488,6 +488,33 @@ def show_scout_player_details(candidate, player_ai, timing, source_list):
     st.caption("Recent findings")
     st.write(player_ai.get("recent_findings") or "No player-specific report verified yet.")
     evidence = player_ai.get("evidence") or []
+    verified = player_ai.get("verified_expert_evidence") or []
+    ranked_sources = [item for item in verified if item.get("kind") == "Expert rankings / cheat sheet"]
+    current_sources = [item for item in verified if item.get("kind") != "Expert rankings / cheat sheet"]
+    st.markdown("#### What fantasy experts say")
+    if ranked_sources:
+        for item in ranked_sources:
+            with st.container(border=True):
+                st.markdown(f"**{escape_html(item['publisher'])} · {escape_html(item['ranking_format'])}**")
+                st.write(item["claim"])
+                st.caption(f"{item['freshness']} · AI-reported date {item['reported_date']} · "
+                           "ESPN/Yahoo defaults may differ from Sleeper Lock-In.")
+                st.link_button("Read ranking or cheat sheet", item["source_url"])
+        if player_ai.get("expert_take"):
+            st.caption("AI synthesis (check links): " + str(player_ai["expert_take"]))
+    else:
+        st.info("No independently cited player-specific cheat sheet or expert ranking "
+                "was found for this candidate. A ranking list is not assumed to endorse them.")
+    st.markdown("#### Recent reports and player news")
+    if current_sources:
+        for item in current_sources:
+            with st.container(border=True):
+                st.markdown(f"**{escape_html(item['publisher'])} · {escape_html(item['kind'])}**")
+                st.write(item["claim"])
+                st.caption(f"{item['freshness']} · AI-reported date: {item['reported_date']}")
+                st.link_button("Open cited report", item["source_url"])
+    else:
+        st.caption("No separately cited current player-specific report available.")
     st.markdown("#### Supporting articles")
     if evidence:
         for proof in evidence:
@@ -539,6 +566,50 @@ def render_scout_report(entry, candidates):
                 + " · " + datetime.fromtimestamp(entry["timestamp"], timezone.utc)
                 .strftime("%b %d, %H:%M UTC")
             )
+    quality = entry.get("research_quality") or {}
+    if quality:
+        st.markdown("#### Expert research coverage")
+        a, b, c = st.columns(3)
+        a.metric("Players with cited sources", f"{quality.get('players_with_sources', 0)} / {len(candidates)}")
+        b.metric("Players with cheat sheet evidence", quality.get("players_with_rankings", 0))
+        c.metric("Citation-backed findings", quality.get("total_verified_links", 0))
+        st.caption("Links confirm which pages the AI used, not that every interpretation "
+                   "or AI-reported publication date is accurate. Older draft sheets are context, "
+                   "not a substitute for current injury and rotation news.")
+        for candidate in candidates:
+            name = str(candidate.get("player") or "")
+            player = next((p for p in report.get("players", [])
+                           if isinstance(p, dict) and p.get("name") == name), None)
+            if player is None:
+                continue
+            q = quality.get("by_player", {}).get(name) or {}
+            with st.expander(f"{name} · {q.get('ranking_sources', 0)} expert rankings · "
+                             f"{q.get('news_sources', 0)} reports"):
+                rankings = [item for item in (player.get("verified_expert_evidence") or [])
+                            if item.get("kind") == "Expert rankings / cheat sheet"]
+                news = [item for item in (player.get("verified_expert_evidence") or [])
+                        if item.get("kind") != "Expert rankings / cheat sheet"]
+                if rankings:
+                    st.markdown("**Expert rankings & cheat sheets**")
+                    for item in rankings:
+                        st.markdown(f"**{escape_html(item['publisher'])}** · "
+                                    f"{escape_html(item['ranking_format'])}")
+                        st.write(item["claim"])
+                        st.caption(f"{item['freshness']} · AI-reported date: {item['reported_date']}")
+                        st.link_button("Read expert source", item["source_url"])
+                else:
+                    st.caption("No player-specific expert cheat sheet entry independently cited.")
+                if news:
+                    st.markdown("**News and rotation reports**")
+                    for item in news:
+                        st.write(item["claim"])
+                        st.caption(f"{item['publisher']} · {item['freshness']} · "
+                                   f"AI-reported date: {item['reported_date']}")
+                        st.link_button("Read news source", item["source_url"])
+                else:
+                    st.caption("No verified current news citation for this player.")
+                if player.get("expert_take") and (rankings or news):
+                    st.caption("AI interpretation: " + str(player["expert_take"]))
     with st.expander("View detailed evidence, risks and research sources"):
         if report.get("alternatives"):
             st.markdown("**Alternatives**")

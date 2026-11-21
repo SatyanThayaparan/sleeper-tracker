@@ -10,17 +10,17 @@
 - Sidebar navigation: Overview, My Team, Draft Board, Rankings, Reports, AI Lab, Settings, Help
 - Settings & Connections for draft link, projections CSV, and ranking weights
 - Live draft metrics, top recommendations, sleeper / fade cards
-- Auto-refresh picks while the browser session is open
+- Auto-refresh picks while the browser session is open, plus **Check Sleeper now** on Overview and Draft Board to bypass the four-second snapshot cache
 - Lock-In opportunity estimates from real league scoring inputs + user-supplied player volatility, schedule and availability
-- Opt-in AI Scout and contextual Ask Picky / 2-player comparisons; manually paid requests, no additional web search for follow-ups
+- AI Scout: manual research by default, with optional opt-in once-per-turn on-clock web research; Ask Picky comparisons are manually paid and do not add new web searches
 - AI Lab: per-turn observed shortlist survival, retrospective ADP baseline, CSV export
 
 ## Picky Scout visual redesign
 
 Picky's AI Scout uses the dark emerald sports-dashboard visual language while preserving the same Sleeper draft logic.
 
-- **One top recommendation and one Top 5 list.** Research summaries are integrated into each player card instead of duplicating the players in a separate takeaway list.
-- **NBA portraits:** candidate cards, the featured pick and scouting details load lightweight player thumbnails directly from the public Sleeper image CDN using their existing numeric Sleeper NBA player IDs. Initials remain as a fallback if the CDN cannot provide a photo. This does not add another Sleeper API poll, OpenAI call, Python image conversion or photo download to the Streamlit server.
+- **One top recommendation and one Top 5 list.** Horizontal cards feature rank, headshot, name/team/eligibility, a compact research takeaway, real citation count and ADP/wait-risk chips. The native **View details** button remains accessible. Research summaries are integrated into each card without duplicating players.
+- **NBA portraits:** candidate cards, the featured pick and scouting details request lightweight player thumbnails directly from the public Sleeper image CDN using numeric Sleeper NBA player IDs. Photos are CSS backgrounds over initials: an unavailable image never displays a broken-image icon. This does not add another Sleeper API poll, OpenAI call, Python image conversion or photo download to the Streamlit server.
 - **Scouting details:** the **View details** button opens a large Streamlit dialog with three tabs: *Scouting overview*, *Reports & sources*, and *Draft context*. Original retrieved article URLs are available for inspection; citation links do not independently verify model-generated claims.
 - **Fluid layouts:** candidate cards, source panels and the dialog adapt to phone, tablet and different monitor widths, with reduced-motion support and native keyboard-focusable Streamlit buttons.
 - **Design isolation:** the HTML builder lives in `scout_design.py`, Scout overrides live in `scout_style.py`, and shared sidebar/page/metric/table polish lives in `page_style.py`. Core `recommend.py`, `scout.py` and Sleeper polling remain unchanged.
@@ -126,11 +126,12 @@ The estimate is an optimistic *expected best available game* for a matchup week.
 Once you unlock AI Scout with your access code, Picky can search the **current Top 5** for expert coverage including ESPN fantasy analysis, Yahoo fantasy draft kits and points-league rankings, NBA.com, RotoWire and other cited sports reports.
 
 - **On any turn:** unlock AI Scout and click **Research Top 5 with AI**. A click deliberately starts a separate web-search retrieval and a no-web AI analysis request for each available candidate (up to five searches plus five analysis calls per button press). The report is cached until you choose to refresh it or the shortlist changes.
-- **No automatic paid requests:** draft polling, opening the app and loading a new pick never trigger OpenAI research.
+- **Immediate Sleeper check:** on Overview or Draft Board, click **Check Sleeper now** to bypass the short cached picks snapshot. On Overview, if Sleeper confirms it is your pick and auto research is enabled, Picky immediately starts the once-per-turn report; otherwise the updated picks and non-AI ranking suggestions appear without any OpenAI charge.
+- **Optional on-clock research:** after unlocking, explicitly enable **Automatically research when I'm on the clock**. While Overview stays open, its configured Sleeper polling interval checks for your turn. Picky runs one automatic Top 5 research attempt per confirmed owned pick, recorded *before* calling OpenAI so failures do not loop. This is opt-in and may incur up to five web-search calls and five analysis calls per pick. A manual pre-turn report can be refreshed once on the turn. Turn the toggle off to return to manual-only behavior.
 - **Research report:** all shortlisted players get visible concise research summaries, each labeled as source-linked or unverified. Full expert findings, cited articles, source status and failures are tucked into an expandable details section. Existing fantasy-points rank and roster-fit order remain the baseline.
 - **Sources:** the retrieval stage collects provider web-search action sources and inline citations; the analysis stage can only cite numbered source IDs from that list. Missing or unsupported IDs remain unverified. Retrieved URLs establish provenance, not independent fact-checking of article claims. Publication dates are **AI-reported, not independently verified from page metadata**; older articles are flagged and unknown dates remain unknown.
 - **Rankings:** expert lists are external context, not a replacement for your league's actual scoring settings or draft rank. ESPN/Yahoo points-league rankings do not necessarily value Sleeper Lock-In in the same way. Never infer a player's rank or expert endorsement just because a general draft kit exists.
-- **Cost:** clicking Research uses OpenAI web-search/model credits, potentially five web searches and five analysis calls per press, and clicking again does the same. There are no Picky-side credit or attempt limits. Set budgets and billing limits in your OpenAI account. Research is always manual. Results are browser-session scoped.
+- **Cost:** clicking Research uses OpenAI web-search/model credits, potentially five web searches and five analysis calls per press, and clicking again does the same. Auto mode uses those same resources once on each of your confirmed picks when explicitly enabled. There are no Picky-side manual credit or attempt limits. Set budgets and billing limits in your OpenAI account. Results and the opt-in are browser-session scoped.
 
 ### Ask Picky (Phase 4)
 

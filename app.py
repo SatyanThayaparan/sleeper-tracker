@@ -1133,10 +1133,21 @@ def live_dashboard(active_page: str):
             d3.metric("Your next pick", f"#{upcoming[0]}" if upcoming and not is_complete else "—")
             d4.metric("Until your turn", max(upcoming[0] - next_pick, 0)
                       if upcoming and not is_complete else "—")
-            st.caption(
-                "Last synced " + datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
-                + f" · Updating every {refresh}s"
-            )
+            sync_text, sync_action = st.columns([4, 1], vertical_alignment="center")
+            with sync_text:
+                st.caption(
+                    "Last synced " + datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
+                    + f" · Checking Sleeper every {refresh}s"
+                )
+            with sync_action:
+                if st.button(
+                    "Check Sleeper now", key="check_sleeper_overview",
+                    icon=":material/sync:", use_container_width=True,
+                    help="Get the latest Sleeper picks immediately. "
+                         "AI research only runs if you opted in for your turn.",
+                ):
+                    live_draft_snapshot.clear(draft_id)
+                    st.rerun(scope="fragment")
 
         # 2. Show filled slots and needs before any recommendations.
         st.markdown("### My Team")
@@ -1161,8 +1172,7 @@ def live_dashboard(active_page: str):
         else:
             st.info("Select your Sleeper account in Settings to show your roster.")
 
-        # 3. AI Scout: unlocked once in this session, auto-runs ONCE when
-        # Sleeper confirms this is your turn. Does not call OpenAI on other refreshes.
+        # 3. AI Scout: manual by default; optional automatic research only\n        # once per confirmed turn after explicit opt-in.
         st.html(
             '<div class="fx-scout-heading">'
             '<span class="fx-scout-mark">✦</span>'
@@ -1223,8 +1233,8 @@ def live_dashboard(active_page: str):
                     code = st.text_input(
                         "AI Scout access code", type="password",
                         key="scout_access_input",
-                        help="Unlock manually triggered player research. "
-                             "No research runs automatically.",
+                        help="Unlock manual player research. Optional automatic "
+                             "on-turn research can be enabled after unlocking.",
                     )
                     if code and scout_access_granted(code):
                         st.session_state.scout_unlocked = True
@@ -1232,6 +1242,27 @@ def live_dashboard(active_page: str):
                     else:
                         st.caption("Unlock AI Scout to research your current players.")
                 if st.session_state.get("scout_unlocked", False):
+                    # Store the setting separately from the widget key:
+                    # Streamlit removes widget state when navigating away.
+                    st.session_state.setdefault("scout_auto_on_turn", False)
+                    auto_widget_key = "_scout_auto_on_turn_toggle"
+                    if auto_widget_key not in st.session_state:
+                        st.session_state[auto_widget_key] = st.session_state["scout_auto_on_turn"]
+                    auto_enabled = st.toggle(
+                        "Automatically research when I'm on the clock",
+                        key=auto_widget_key,
+                        help="Optional. Picky checks Sleeper on the configured "
+                             f"{refresh}-second timer and researches the Top 5 "
+                             "ONCE when it's your pick. Up to five paid web "
+                             "searches and five analysis calls per turn. "
+                             "Turn off anytime. Manual research remains available.",
+                    )
+                    st.session_state["scout_auto_on_turn"] = bool(auto_enabled)
+                    if st.session_state.get("scout_auto_on_turn", False):
+                        st.caption(
+                            "Automatic research armed · only when Sleeper confirms "
+                            "it's your turn; at most one automatic attempt per pick."
+                        )
                     next_owned_pick = upcoming[0] if upcoming else None
                     turn_key = (
                         turn_research_key(draft_id, my_user_id, next_owned_pick)
@@ -1240,12 +1271,64 @@ def live_dashboard(active_page: str):
                     cached = cache_entry(st.session_state, turn_key) if turn_key else None
                     if cached and not cached_report_matches(cached, top_five):
                         cached = None
+                    scout_context = {
+                        "upcoming_pick": next_owned_pick,
+                        "following_pick": following_pick,
+                        "current_pick": next_pick,
+                        "league_teams": teams,
+                        "opponent_by_player": opponent_by_player,
+                        "roster_eligible_counts": role_counts(roster_ids, players),
+                    }
+                    if auto_research_due(
+                        st.session_state, turn_key,
+                        on_clock=on_clock, unlocked=True, configured=True,
+                        candidate_count=len(top_five), draft_active=draft_active,
+                        candidates=top_five,
+                        auto_enabled=bool(st.session_state.get("scout_auto_on_turn")),
+                    ):
+                        # Record BEFORE the charge so failed searches do not
+                        # repeat on the next polling tick or a manual refresh.
+                        record_auto_attempt(st.session_state, turn_key)
+                        with st.status(
+                            "Your pick is live · researching the Top 5 players…",
+                            expanded=True,
+                        ) as progress:
+                            try:
+                                use_scout(
+                                    st.session_state, turn_key, top_five,
+                                    open_slots=roster_state["open_slots"],
+                                    context=scout_context,
+                                )
+                            except Exception as exc:
+                                st.session_state.setdefault(
+                                    "ai_scout_turn_errors", {}
+                                )[turn_key] = str(exc)[:500]
+                                progress.update(
+                                    label="Automatic research incomplete · manual retry available",
+                                    state="error", expanded=False,
+                                )
+                                st.error(
+                                    "AI research could not complete. You can retry "
+                                    "manually below; no repeated automatic requests "
+                                    "will be made for this pick."
+                                )
+                            else:
+                                st.session_state.get(
+                                    "ai_scout_turn_errors", {}
+                                ).pop(turn_key, None)
+                                progress.update(
+                                    label="On-turn research complete",
+                                    state="complete", expanded=False,
+                                )
+                                st.rerun(scope="fragment")
                     if cached:
                         render_scout_report(cached, top_five)
                     st.caption(
-                        "Research is optional. One click researches each of your Top 5 "
-                        "separately (up to five web-search calls and five analysis calls). "
-                        "No local usage caps; spending is controlled in your OpenAI account."
+                        "Manual research always remains available. Each research run "
+                        "can use up to five web-search calls and five analysis calls. "
+                        "Automatic mode is off unless you enable it, and then runs "
+                        "once per confirmed turn, including if you researched before your turn. "
+                        "Manage spending in your OpenAI account."
                     )
                     if st.button(
                         "Research Top 5 with AI" if not cached else "Refresh AI research",
@@ -1254,20 +1337,17 @@ def live_dashboard(active_page: str):
                         key="run_manual_ai_scout",
                         use_container_width=True,
                     ):
+                        # A manual research click counts as this turn's attempt
+                        # for auto mode, preventing duplicate unexpected charges.
+                        if on_clock:
+                            record_auto_attempt(st.session_state, turn_key)
                         with st.status("Researching each player and collecting sources…",
                                        expanded=True) as progress:
                             try:
                                 use_scout(
                                     st.session_state, turn_key, top_five,
                                     open_slots=roster_state["open_slots"],
-                                    context={
-                                        "upcoming_pick": next_owned_pick,
-                                        "following_pick": following_pick,
-                                        "current_pick": next_pick,
-                                        "league_teams": teams,
-                                        "opponent_by_player": opponent_by_player,
-                                        "roster_eligible_counts": role_counts(roster_ids, players),
-                                    },
+                                    context=scout_context,
                                 )
                             except Exception as exc:
                                 st.session_state.setdefault(
@@ -1342,7 +1422,7 @@ def live_dashboard(active_page: str):
             if top_five:
                 selected_detail = None
                 for rank_no, candidate in enumerate(top_five, 1):
-                    player_name = str(candidate.get("player") or "Player")
+                    candidate_name = str(candidate.get("player") or "Player")
                     player_id = str(candidate.get("player_id") or "")
                     meta = players.get(player_id, {})
                     display_candidate = dict(candidate)
@@ -1353,12 +1433,12 @@ def live_dashboard(active_page: str):
                     display_candidate["team"] = (
                         candidate.get("team") or meta.get("team") or "NBA"
                     )
-                    player_ai = ai_players.get(player_name) or {}
+                    player_ai = ai_players.get(candidate_name) or {}
                     timing = evaluate_pick_timing(
                         candidate, current_pick=next_pick,
                         following_pick=following_pick,
                         open_slots=roster_state["open_slots"] if roster_state else [],
-                        opponent=opponent_by_player.get(player_name),
+                        opponent=opponent_by_player.get(candidate_name),
                     )
                     citations = len(player_ai.get("verified_expert_evidence") or [])
                     summary = str(player_ai.get("recent_findings") or "").strip()
@@ -1368,13 +1448,13 @@ def live_dashboard(active_page: str):
                             or "Review roster fit and draft timing."
                         )
                     research_state = (
-                        "search_only" if player_name in
+                        "search_only" if candidate_name in
                         ((current_entry or {}).get("retrieval_only_players") or []) else
                         "researched" if player_ai else "ranking"
                     )
                     source_list = (
                         (current_entry or {}).get("per_player_sources", {}).get(
-                            player_name, []
+                            candidate_name, []
                         )
                     )
                     with st.container(key=f"ai_candidate_{rank_no}"):
@@ -1553,6 +1633,13 @@ def live_dashboard(active_page: str):
             subtitle="Follow each selection and see how the draft is progressing.",
             live=not completed and draft_status in ("drafting", "in_progress"),
         )
+        if st.button(
+            "Check Sleeper now", key="check_sleeper_board",
+            icon=":material/sync:",
+            help="Fetch a new picks snapshot immediately without waiting for the timer.",
+        ):
+            live_draft_snapshot.clear(draft_id)
+            st.rerun(scope="fragment")
         m1, m2, m3 = st.columns(3)
         m1.metric("Picks made", len(picks))
         m2.metric("Teams", teams or "—")

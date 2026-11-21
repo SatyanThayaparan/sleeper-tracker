@@ -1,7 +1,6 @@
 """On-demand, source-backed AI scouting for Picky's *current* draft shortlist.
 
-No network request is made by importing this module, building the prompt, or
-refreshing Sleeper data. Only the explicit Research button calls the API.
+No network request is made by importing this module or building the prompt.\nOnly explicit Research or user-enabled once-per-turn automatic research uses OpenAI.
 """
 
 from __future__ import annotations
@@ -582,9 +581,24 @@ def turn_research_key(draft_id, user_id, pick_number):
 
 
 def auto_research_due(session, key, *, on_clock, unlocked, configured,
-                      candidate_count, draft_active, candidates=None):
-    """Research is manual-only: no charges on draft refresh."""
-    return False
+                      candidate_count, draft_active, candidates=None,
+                      auto_enabled=False):
+    """Require explicit opt-in, a live own turn, and no prior attempt or report.
+
+    Streamlit rerenders and Sleeper polling must NEVER cause repeated charges
+    for the same pick. The attempt is recorded before the paid call. An ordinary
+    manual button remains available even after an auto attempt.
+    """
+    if not (auto_enabled and key and on_clock and unlocked and configured
+            and draft_active and candidate_count > 0):
+        return False
+    if key in session.get("ai_scout_auto_attempted", set()):
+        return False
+    # A user may have researched the candidates manually *before* their
+    # turn. When the pick comes up, an explicit auto opt-in means a fresh
+    # once-per-turn assessment rather than reusing potentially older findings.
+    # The per-turn attempt guard prevents a second automatic paid call.
+    return True
 
 
 def record_auto_attempt(session, key):
@@ -594,7 +608,7 @@ def record_auto_attempt(session, key):
 
 def use_scout(session, key, candidates, *, open_slots, research_fn=run_scout,
               context=None, recovery=False):
-    """Only the deliberate UI button invokes paid research; no local caps."""
+    """Run one manual or explicitly opt-in on-turn paid research; no local caps."""
     if not key:
         raise ValueError("No active draft-turn research key.")
     # Preserve historical counts for diagnostics only, never as spending limits.

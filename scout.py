@@ -473,6 +473,8 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
     # We intentionally do not call the five-player prompt: a large JSON
     # completion often returned just one player and no useful news.
     all_players, all_sources, failures = [], [], []
+    per_player_sources = {}
+    retrieval_only = []
     seen_urls = set()
     shared_client = client if client is not None else get_openai_client()
     if shared_client is None:
@@ -491,6 +493,14 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
             if player.get("name") != name:
                 raise RuntimeError("Returned research did not match the player.")
             all_players.append(player)
+            per_player_sources[name] = result.get("sources", [])
+            if result.get("analysis_status") == "retrieval_only":
+                retrieval_only.append(name)
+                failures.append({
+                    "player": name,
+                    "error": "Analysis incomplete after source retrieval: "
+                             + str(result.get("analysis_error") or "unknown")[:180],
+                })
             for source in result.get("sources", []):
                 url = source.get("url")
                 if url and url not in seen_urls:
@@ -556,6 +566,8 @@ def run_scout(candidates, *, open_slots, scoring_format="Sleeper NBA Lock-In",
                              if row.get("player") not in sourced],
         "has_source_backed_research": bool(sourced),
         "research_failures": failures,
+        "per_player_sources": per_player_sources,
+        "retrieval_only_players": retrieval_only,
         "requests_made": len(candidates) * 2,
     }
 

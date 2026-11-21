@@ -36,7 +36,7 @@ def photo_html(name, player_id=None, *, size="sm"):
     url = player_photo_url(player_id)
     photo = (
         f'<img src="{url}" alt="" loading="lazy" decoding="async" '
-        'referrerpolicy="no-referrer" />'
+        'referrerpolicy="no-referrer">'
         if url else ""
     )
     size = size if size in {"sm", "hero", "modal"} else "sm"

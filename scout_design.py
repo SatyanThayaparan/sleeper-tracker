@@ -34,9 +34,11 @@ def photo_html(name, player_id=None, *, size="sm"):
     name_safe = escape(str(name or "NBA player"), quote=True)
     initials = escape(initials_for(name))
     url = player_photo_url(player_id)
+    # Background images fail silently while the visible initials stay intact.
+    # A broken <img> tag previously overlaid a browser's broken-image icon.
     photo = (
-        f'<img src="{url}" alt="" loading="lazy" decoding="async" '
-        'referrerpolicy="no-referrer">'
+        '<span class="picky-photo-image" aria-hidden="true" '
+        f'style="background-image:url(\'{url}\')"></span>'
         if url else ""
     )
     size = size if size in {"sm", "hero", "modal"} else "sm"
@@ -108,19 +110,20 @@ def scout_candidate_html(candidate, rank, *, summary="", risk="unknown",
     risk_label = f"Wait risk: {str(risk or 'unknown').capitalize()}"
     return (
         '<div class="picky-player-row">'
+        '<div class="picky-player-identity">'
         '<span class="picky-player-rank" aria-label="Picky rank">'
         f'#{rank}</span>'
         f'{photo_html(name, candidate.get("player_id"))}'
-        '<div class="picky-player-content">'
-        '<div class="picky-player-title-line">'
+        '<div class="picky-player-identity-copy">'
         f'<strong>{escape(name)}</strong>'
         f'<span class="picky-player-team">{escape(team)} · {escape(positions)}</span>'
-        '</div>'
-        f'<p class="picky-player-summary">{_text(reason, 275)}</p>'
+        '</div></div>'
+        '<div class="picky-player-research">'
+        f'<p class="picky-player-summary">{_text(reason, 205)}</p>'
         '<div class="picky-player-metrics">'
+        f'{_chip(source_label, "green" if cited_count else "muted")}'
         f'{_chip(adp_label)}'
         f'{_chip(sleeper_label)}'
-        f'{_chip(source_label, "green" if cited_count else "muted")}'
         f'{_chip(risk_label, "amber" if risk == "elevated" else "muted")}'
         '</div></div></div>'
     )

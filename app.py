@@ -25,6 +25,11 @@ from scout import (cache_entry, cached_report_matches, research_key,
                    turn_research_key, auto_research_due, record_auto_attempt,
                    CACHE_TTL_SECONDS)
 from config import default_draft_url
+from scout_design import (
+    scout_hero_html, scout_candidate_html, details_header_html,
+    insight_panel_html, source_heading_html,
+)
+from scout_style import inject_scout_css
 from theme import (
     APP_NAME,
     APP_TAGLINE,
@@ -46,6 +51,7 @@ st.set_page_config(
     initial_sidebar_state="auto",
 )
 inject_css()
+inject_scout_css()
 
 # Base test draft lives in gitignored .env as PICKY_DEFAULT_DRAFT_URL (not hardcoded).
 DEFAULT_DRAFT_URL = default_draft_url()
@@ -462,206 +468,159 @@ def render_team_breakdown(roster_ids, players, roster_state):
 
 @st.dialog("Player scouting details", width="large")
 def show_scout_player_details(candidate, player_ai, timing, source_list):
-    """Open an accessible modal without repeating the full specs on the page."""
-    name = str(candidate.get("player") or "Player")
-    st.markdown(f"### {escape_html(name)}")
-    st.caption(
-        f'{candidate.get("position") or "Position unknown"} · '
-        f'{candidate.get("team") or "Team unknown"} · '
-        f'Sleeper search rank: {candidate.get("sleeper_search_rank") or "—"} · '
-        f'Blended ADP: {candidate.get("blend_adp") if candidate.get("blend_adp") is not None else "—"}'
-    )
-    st.markdown("#### Why this player?")
-    # The current deterministic roster view wins over any cached AI wording.
-    st.write(candidate.get("roster") or player_ai.get("draft_fit") or timing["position_note"])
-    st.markdown("#### Draft now or wait?")
-    st.write(timing["reason"])
-    if player_ai.get("why_now"):
-        st.write(player_ai["why_now"])
-    if player_ai and not (player_ai.get("verified_expert_evidence") or []):
-        st.warning("AI returned an interpretation for this player, but no "
-                   "provider-retrieved source supports a player-specific finding. "
-                   "Treat the text below as unverified commentary, not "
-                   "expert research.")
-    if not player_ai:
-        st.warning("No completed AI research is attached to this player for the current "
-                   "Top 5. These details currently come from Picky's ranking engine "
-                   "and Sleeper, not from ESPN/Yahoo research. Close this panel "
-                   "and use **Run AI research now** in Picky AI Scout to request "
-                   "a source-backed report.")
-        st.caption("A research request uses OpenAI API/web-search credits.")
-        if st.button("Close details", key="close_unresearched_scout", use_container_width=True):
-            st.rerun()
-        return
-    st.markdown("#### NBA scouting report")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.caption("Opportunity and role")
-        st.write(player_ai.get("role_outlook") or "Not verified")
-    with col2:
-        st.caption("Injury and availability")
-        st.write(player_ai.get("availability_risk") or candidate.get("injury") or "Not verified")
-    st.caption("Recent findings")
-    st.write(player_ai.get("recent_findings") or "No player-specific report verified yet.")
-    evidence = player_ai.get("evidence") or []
+    """Styled, accessible NBA scouting panel; all dynamic links are real sources."""
+    player_ai = player_ai or {}
     verified = player_ai.get("verified_expert_evidence") or []
-    ranked_sources = [item for item in verified if item.get("kind") == "Expert rankings / cheat sheet"]
-    current_sources = [item for item in verified if item.get("kind") != "Expert rankings / cheat sheet"]
-    st.markdown("#### What fantasy experts say")
-    if ranked_sources:
-        for item in ranked_sources:
-            with st.container(border=True):
-                st.markdown(f"**{escape_html(item['publisher'])} · {escape_html(item['ranking_format'])}**")
-                st.write(item["claim"])
-                st.caption(f"{item['freshness']} · AI-reported date {item['reported_date']} · "
-                           "ESPN/Yahoo defaults may differ from Sleeper Lock-In.")
-                st.link_button("Read ranking or cheat sheet", item["source_url"])
+    ranked = [item for item in verified
+              if item.get("kind") == "Expert rankings / cheat sheet"]
+    news = [item for item in verified
+            if item.get("kind") != "Expert rankings / cheat sheet"]
+    st.html(details_header_html(candidate, citations=len(verified)))
+
+    overview_tab, sources_tab, context_tab = st.tabs(
+        ["✦ Scouting overview", "↗ Reports & sources", "▤ Draft context"]
+    )
+    with overview_tab:
+        a, b = st.columns(2, gap="medium")
+        with a:
+            st.html(insight_panel_html(
+                "Why this player?",
+                candidate.get("roster") or player_ai.get("draft_fit")
+                or timing.get("position_note") or "Roster fit unavailable.",
+                kind="green", icon="✓",
+            ))
+        with b:
+            st.html(insight_panel_html(
+                "Draft now or wait?", timing.get("reason") or "Timing unavailable.",
+                kind="amber" if timing.get("risk") == "elevated" else "normal",
+                icon="◷",
+            ))
+        st.markdown("##### Player outlook")
+        role_col, injury_col = st.columns(2, gap="medium")
+        with role_col:
+            st.html(insight_panel_html(
+                "Opportunity & role",
+                player_ai.get("role_outlook") or
+                "No player-specific opportunity report is available yet.",
+                icon="↗",
+            ))
+        with injury_col:
+            st.html(insight_panel_html(
+                "Injury & availability",
+                player_ai.get("availability_risk") or
+                candidate.get("injury") or
+                "Verify the latest status with the NBA team or your fantasy provider.",
+                icon="♡",
+            ))
+        st.markdown("##### Recent findings")
+        st.html(insight_panel_html(
+            "Fantasy research summary",
+            player_ai.get("recent_findings") or
+            "Research has not been run for this candidate. "
+            "Picky's original draft ranking is still available.",
+            kind="green" if verified else "normal", icon="✦",
+        ))
         if player_ai.get("expert_take"):
-            st.caption("AI synthesis (check links): " + str(player_ai["expert_take"]))
-    else:
-        st.info("No independently cited player-specific cheat sheet or expert ranking "
-                "was found for this candidate. A ranking list is not assumed to endorse them.")
-    st.markdown("#### Recent reports and player news")
-    if current_sources:
-        for item in current_sources:
-            with st.container(border=True):
-                st.markdown(f"**{escape_html(item['publisher'])} · {escape_html(item['kind'])}**")
-                st.write(item["claim"])
-                st.caption(f"{item['freshness']} · AI-reported date: {item['reported_date']}")
-                st.link_button("Open cited report", item["source_url"])
-    else:
-        st.caption("No separately cited current player-specific report available.")
-    st.markdown("#### Supporting articles")
-    if evidence:
-        for proof in evidence:
-            if isinstance(proof, dict) and proof.get("source_url"):
+            st.html(insight_panel_html(
+                "What fantasy experts say",
+                player_ai["expert_take"], icon="▤",
+            ))
+        if not verified:
+            st.caption("This player has no linked, player-specific source findings. "
+                       "Any AI summary above is unverified; check original reporting.")
+
+    with sources_tab:
+        st.caption("Linked articles were retrieved during research; model summaries "
+                   "and reported dates have not been independently fact-checked.")
+        if ranked:
+            st.markdown("##### Expert rankings & cheat sheets")
+            for item in ranked:
                 with st.container(border=True):
-                    st.write(proof.get("claim") or "Source finding")
-                    st.caption("Publication date: " + str(proof.get("reported_date") or "Unverified"))
-                    st.link_button(str(proof.get("source_title") or "Read article"), proof["source_url"])
-    else:
-        st.info("No independently cited player-specific reports yet. Verify the news before drafting.")
-    if source_list:
-        with st.expander("Other sources cited by AI Scout"):
-            for source in source_list:
-                st.link_button(str(source.get("title") or "Article"), source["url"])
-    st.caption("ADP wait risk is not a calibrated probability. Picky never submits a draft pick.")
-    if st.button("Close details", use_container_width=True, key="close_scout_dialog"):
+                    st.html(source_heading_html(
+                        item.get("publisher") or "Expert ranking",
+                        item.get("ranking_format") or "Cheat sheet",
+                        item.get("freshness") or "Date unknown",
+                    ))
+                    st.write(item.get("claim") or "Read the original ranking.")
+                    st.link_button("Read original ranking", item["source_url"])
+        if news:
+            st.markdown("##### NBA news & fantasy analysis")
+            for item in news:
+                with st.container(border=True):
+                    st.html(source_heading_html(
+                        item.get("publisher") or "NBA report",
+                        item.get("kind") or "Fantasy analysis",
+                        item.get("freshness") or "Date unknown",
+                    ))
+                    st.write(item.get("claim") or "Read the original article.")
+                    st.link_button("Read original report", item["source_url"])
+        if not verified:
+            st.info("No player-specific source citations were verified. "
+                    "That does not imply there are no articles about this player.")
+        used_urls = {str(item.get("source_url") or "") for item in verified}
+        extras = [src for src in (source_list or [])
+                  if isinstance(src, dict) and src.get("url")
+                  and src.get("url") not in used_urls]
+        if extras:
+            with st.expander("Other retrieved pages · not verified for this player's claims"):
+                for article in extras[:8]:
+                    st.link_button(str(article.get("title") or "Read retrieved page")[:100],
+                                   article["url"])
+
+    with context_tab:
+        adp = candidate.get("blend_adp")
+        search_rank = candidate.get("sleeper_search_rank")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Blended ADP", f"{float(adp):.1f}" if isinstance(adp, (float, int)) else "—")
+        c2.metric("Sleeper search rank", f"#{search_rank}" if search_rank is not None else "—")
+        c3.metric("Wait risk", str(timing.get("risk") or "Unknown").title())
+        st.html(insight_panel_html(
+            "Current roster fit",
+            candidate.get("roster") or timing.get("position_note")
+            or "No roster fit available.",
+            kind="green", icon="✓",
+        ))
+        if player_ai.get("why_now"):
+            st.html(insight_panel_html(
+                "AI draft timing perspective", player_ai["why_now"], icon="◷",
+            ))
+        st.caption("Sleeper search rank is not a fantasy rank. "
+                   "ADP is historical selection order, not projected points; "
+                   "wait risk is not a calibrated probability.")
+    if st.button("Close details", key="close_scout_dialog", use_container_width=True):
         st.rerun()
 
 
 def render_scout_report(entry, candidates):
-    """Keep Overview decisive; source and failure diagnostics stay on demand."""
+    """One compact report summary; card summaries live in the unified Top 5 list."""
     report = entry.get("report") or {}
-    if not isinstance(report, dict):
-        st.caption("AI returned no readable comparison. Your rankings remain available.")
-        return
-    players = {p.get("name"): p for p in report.get("players", [])
-               if isinstance(p, dict)}
-    sourced = set(entry.get("sourced_players") or [])
-    retrieval_only = set(entry.get("retrieval_only_players") or [])
-    source_catalog = entry.get("per_player_sources") or {}
-    reviewed = len(players)
-    source_count = (entry.get("research_quality") or {}).get("total_verified_links", 0)
-
-    if sourced:
-        leader = next((p for p in candidates if p.get("player") in sourced), None)
-        if leader:
-            name = str(leader.get("player"))
-            item = players.get(name) or {}
-            with st.container(border=True, key="scout_recommended"):
-                st.html(
-                    '<div class="fx-recommend-banner">'
-                    '<span>✦ PICKY AI SCOUT</span>'
-                    '<strong>EXPERT RESEARCH AVAILABLE</strong></div>'
-                )
-                st.markdown(f"### {escape_html(name)}")
-                st.write(leader.get("roster") or "Highest-ranked option with sourced coverage.")
-                st.caption(
-                    f"{len(sourced)} of {len(candidates)} players have linked findings · "
-                    f"{source_count} citation-backed sources · "
-                    "Ranking remains based on Picky's fantasy-points logic."
-                )
-    else:
-        st.caption("No player-specific findings have verified citations yet. "
-                   "Summaries below show the model's available text or retrieval "
-                   "fallback. See source/diagnostic details if analysis was incomplete.")
-
-    st.markdown("#### Quick research takeaways")
-    for candidate in candidates:
-        name = str(candidate.get("player") or "")
-        player = players.get(name) or {}
-        summary = str(player.get("recent_findings") or "").strip()
-        is_sourced = name in sourced
-        with st.container(border=True):
-            col_name, col_conf = st.columns([4, 1], vertical_alignment="center")
-            with col_name:
-                st.markdown(f"**{escape_html(name)}**")
-            with col_conf:
-                if is_sourced:
-                    st.caption("Sources linked")
-                elif name in retrieval_only:
-                    st.caption("Search only")
-                else:
-                    st.caption("Unverified")
-            st.write(summary or
-                     "No outside findings were returned. Picky's ranking and "
-                     "roster-fit analysis remain available.")
-
-    with st.expander("Expert research · sources and diagnostics"):
-        st.caption(
-            f"{reviewed}/{len(candidates)} player summaries · "
-            f"{len(sourced)}/{len(candidates)} with linked findings · "
-            f"{source_count} cited links. AI interpretation and reported dates "
-            "must be checked against the original articles."
-        )
+    covered = len([p for p in report.get("players", []) if isinstance(p, dict)])
+    sourced = len(entry.get("sourced_players") or [])
+    linked = (entry.get("research_quality") or {}).get("total_verified_links", 0)
+    st.caption(
+        f"✦ Research updated · {covered}/{len(candidates)} candidate summaries "
+        f"· {sourced} with cited findings · {linked} linked reports"
+    )
+    with st.expander("Research coverage & diagnostics"):
+        st.caption("Research summaries and citation dates may contain AI errors. "
+                   "Check the source articles before choosing a player.")
         for candidate in candidates:
             name = str(candidate.get("player") or "")
-            player = players.get(name)
-            with st.expander(name):
-                if not player:
-                    st.caption("No player-specific report returned.")
-                    continue
-                st.write(player.get("role_outlook") or "Role not verified")
-                if player.get("expert_take"):
-                    st.write(player["expert_take"])
-                if player.get("availability_risk"):
-                    st.caption("Availability: " + str(player["availability_risk"]))
-                for item in (player.get("verified_expert_evidence") or []):
-                    st.markdown(
-                        f"**{escape_html(str(item.get('publisher') or 'Article'))}** "
-                        f"· {escape_html(str(item.get('kind') or 'Report'))}"
-                    )
-                    st.write(item.get("claim") or "")
-                    st.caption(str(item.get("freshness") or "Date unknown"))
-                    st.link_button("Read source", item["source_url"])
-                if not player.get("verified_expert_evidence"):
-                    st.caption("No individually attributable source link was returned; "
-                               "the above summary is unverified AI analysis.")
-                retrieved = source_catalog.get(name) or []
-                linked = {
-                    item.get("source_url")
-                    for item in (player.get("verified_expert_evidence") or [])
-                }
-                extra = [item for item in retrieved
-                         if item.get("url") and item.get("url") not in linked]
-                if extra:
-                    st.caption("Other pages retrieved by web search (not verified "
-                               "as supporting this player's claims):")
-                    for idx, item in enumerate(extra[:5]):
-                        st.link_button(
-                            str(item.get("title") or "View retrieved page")[:90],
-                            item["url"],
-                        )
-        failures = entry.get("research_failures") or []
-        if failures:
+            player = next(
+                (p for p in report.get("players", [])
+                 if isinstance(p, dict) and p.get("name") == name),
+                None,
+            )
+            count = len((player or {}).get("verified_expert_evidence") or [])
+            st.write(f"{name}: {count} linked finding{'s' if count != 1 else ''}")
+        errors = entry.get("research_failures") or []
+        if errors:
             st.markdown("**Research diagnostics**")
-            for failure in failures:
-                st.caption(f"{failure.get('player')}: {failure.get('error')}")
-        if not entry.get("sources"):
-            st.caption("No web source metadata was returned. A manual refresh "
-                       "can retry, but each request may incur charges.")
-
+            for item in errors:
+                st.caption(f"{item.get('player') or 'Player'}: "
+                           f"{item.get('error') or 'Report incomplete'}")
+        if not linked:
+            st.caption("No individually cited source findings were found in this report.")
 
 
 def render_settings_form(league_id_hint: str = ""):

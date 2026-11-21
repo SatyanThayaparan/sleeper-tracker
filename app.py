@@ -30,6 +30,7 @@ from scout_design import (
     insight_panel_html, source_heading_html,
 )
 from scout_style import inject_scout_css
+from page_style import inject_page_css
 from theme import (
     APP_NAME,
     APP_TAGLINE,
@@ -51,6 +52,7 @@ st.set_page_config(
     initial_sidebar_state="auto",
 )
 inject_css()
+inject_page_css()
 inject_scout_css()
 
 # Base test draft lives in gitignored .env as PICKY_DEFAULT_DRAFT_URL (not hardcoded).

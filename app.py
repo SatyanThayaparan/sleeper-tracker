@@ -559,6 +559,8 @@ def render_scout_report(entry, candidates):
     players = {p.get("name"): p for p in report.get("players", [])
                if isinstance(p, dict)}
     sourced = set(entry.get("sourced_players") or [])
+    retrieval_only = set(entry.get("retrieval_only_players") or [])
+    source_catalog = entry.get("per_player_sources") or {}
     reviewed = len(players)
     source_count = (entry.get("research_quality") or {}).get("total_verified_links", 0)
 
@@ -581,8 +583,9 @@ def render_scout_report(entry, candidates):
                     "Ranking remains based on Picky's fantasy-points logic."
                 )
     else:
-        st.caption("No independently cited findings in this result. "
-                   "Your ranking-based recommendations remain unchanged.")
+        st.caption("No player-specific findings have verified citations yet. "
+                   "Summaries below show the model's available text or retrieval "
+                   "fallback. See source/diagnostic details if analysis was incomplete.")
 
     st.markdown("#### Quick research takeaways")
     for candidate in candidates:
@@ -597,6 +600,8 @@ def render_scout_report(entry, candidates):
             with col_conf:
                 if is_sourced:
                     st.caption("Sources linked")
+                elif name in retrieval_only:
+                    st.caption("Search only")
                 else:
                     st.caption("Unverified")
             st.write(summary or
@@ -633,6 +638,21 @@ def render_scout_report(entry, candidates):
                 if not player.get("verified_expert_evidence"):
                     st.caption("No individually attributable source link was returned; "
                                "the above summary is unverified AI analysis.")
+                retrieved = source_catalog.get(name) or []
+                linked = {
+                    item.get("source_url")
+                    for item in (player.get("verified_expert_evidence") or [])
+                }
+                extra = [item for item in retrieved
+                         if item.get("url") and item.get("url") not in linked]
+                if extra:
+                    st.caption("Other pages retrieved by web search (not verified "
+                               "as supporting this player's claims):")
+                    for idx, item in enumerate(extra[:5]):
+                        st.link_button(
+                            str(item.get("title") or "View retrieved page")[:90],
+                            item["url"], key=f"scout_extra_{name}_{idx}",
+                        )
         failures = entry.get("research_failures") or []
         if failures:
             st.markdown("**Research diagnostics**")

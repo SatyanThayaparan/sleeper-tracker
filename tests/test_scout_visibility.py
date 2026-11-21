@@ -13,16 +13,17 @@ class ResearchVisibilityTests(unittest.TestCase):
         self.assertIn('use_scout(', source)
         self.assertNotIn('"Run one-time AI research recovery"', source)
         self.assertNotIn("AI research requests are exhausted", source)
-        self.assertIn('with st.expander("Expert research · sources and diagnostics")', source)
+        self.assertIn('with st.expander("Research coverage & diagnostics")', source)
 
     def test_unresearched_details_are_labeled_as_ranking_only(self):
         source = (ROOT / "app.py").read_text(encoding="utf-8")
         start = source.index('def show_scout_player_details(')
         end = source.index('def render_scout_report(', start)
         modal = source[start:end]
-        self.assertIn("if not player_ai:", modal)
-        self.assertIn("not from ESPN/Yahoo research", modal)
-        self.assertIn("return", modal)
+        self.assertIn("if not verified:", modal)
+        self.assertIn("Research has not been run for this candidate", modal)
+        self.assertIn('st.tabs(', modal)
+        self.assertIn('st.link_button(', modal)
 
     def test_no_browser_spending_limits_or_auto_research(self):
         session = {"ai_scout_call_counts": {"turn-1": 999},

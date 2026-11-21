@@ -594,9 +594,10 @@ def auto_research_due(session, key, *, on_clock, unlocked, configured,
         return False
     if key in session.get("ai_scout_auto_attempted", set()):
         return False
-    existing = cache_entry(session, key)
-    if existing and (candidates is None or cached_report_matches(existing, candidates)):
-        return False
+    # A user may have researched the candidates manually *before* their
+    # turn. When the pick comes up, an explicit auto opt-in means a fresh
+    # once-per-turn assessment rather than reusing potentially older findings.
+    # The per-turn attempt guard prevents a second automatic paid call.
     return True
 
 

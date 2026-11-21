@@ -651,7 +651,7 @@ def render_scout_report(entry, candidates):
                     for idx, item in enumerate(extra[:5]):
                         st.link_button(
                             str(item.get("title") or "View retrieved page")[:90],
-                            item["url"], key=f"scout_extra_{name}_{idx}",
+                            item["url"],
                         )
         failures = entry.get("research_failures") or []
         if failures:

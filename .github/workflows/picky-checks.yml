@@ -14,6 +14,6 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Compile application
-        run: python -m compileall -q app.py theme.py recommend.py roster.py scout.py ai.py draft_strategy.py opponent_draft.py nba_teams.py lockin.py copilot.py evaluation.py expert_research.py research_pipeline.py
+        run: python -m compileall -q app.py theme.py recommend.py roster.py scout.py ai.py draft_strategy.py opponent_draft.py nba_teams.py lockin.py copilot.py evaluation.py expert_research.py research_pipeline.py scout_design.py scout_style.py
       - name: Run roster and pick planner tests
         run: python -m unittest discover -s tests -v

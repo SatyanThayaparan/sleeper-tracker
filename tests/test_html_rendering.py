@@ -100,18 +100,24 @@ class RendererTests(unittest.TestCase):
         self.assertTrue(fragments, "AI heading must use st.html not Markdown.")
 
 
-    def test_ai_player_name_and_metadata_render_in_one_html_block(self):
-        """Avoid the overlapping Streamlit markdown-title/caption regression."""
+    def test_unified_scout_rows_are_single_html_components(self):
+        """Prevent name/meta overlap from separately rendered markdown elements."""
         markup = SOURCE.read_text(encoding="utf-8")
-        start = markup.index("with summary_col:", markup.index('key=f"ai_candidate_{rank_no}"'))
-        end = markup.index("with action_col:", start)
+        start = markup.index('with st.container(key=f"ai_candidate_{rank_no}")')
+        end = markup.index("if selected_detail is not None:", start)
         snippet = markup[start:end]
-        self.assertNotIn("st.caption(", snippet)
-        self.assertNotIn("st.markdown(", snippet)
-        self.assertIn("st.html(", snippet)
-        for name in ("fx-scout-player-name", "fx-scout-meta",
-                     "fx-scout-one-liner", "fx-scout-bottom-line"):
-            self.assertIn(name, snippet)
+        self.assertIn("st.html(scout_candidate_html(", snippet)
+        self.assertIn('"View details"', snippet)
+        self.assertNotIn("with summary_col:", snippet)
+        self.assertNotIn('st.caption(', snippet)
+        self.assertNotIn('st.markdown(', snippet)
+        self.assertNotIn('fx-scout-avatar-wrap', snippet)
+
+    def test_scout_only_has_one_player_list(self):
+        source = SOURCE.read_text(encoding="utf-8")
+        self.assertEqual(source.count('st.markdown("#### Top 5 available options")'), 1)
+        self.assertNotIn('st.markdown("#### Quick research takeaways")', source)
+        self.assertIn('st.html(scout_hero_html(', source)
 
 
 

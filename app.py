@@ -1242,16 +1242,22 @@ def live_dashboard(active_page: str):
                     else:
                         st.caption("Unlock AI Scout to research your current players.")
                 if st.session_state.get("scout_unlocked", False):
-                    st.toggle(
+                    # Store the setting separately from the widget key:
+                    # Streamlit removes widget state when navigating away.
+                    st.session_state.setdefault("scout_auto_on_turn", False)
+                    auto_widget_key = "_scout_auto_on_turn_toggle"
+                    if auto_widget_key not in st.session_state:
+                        st.session_state[auto_widget_key] = st.session_state["scout_auto_on_turn"]
+                    auto_enabled = st.toggle(
                         "Automatically research when I'm on the clock",
-                        key="scout_auto_on_turn",
-                        help="Optional. If enabled, Picky checks Sleeper on the "
-                             f"{refresh}-second timer and runs the current Top 5 "
-                             "research ONCE when it's your pick. Up to five paid "
-                             "web-search calls plus five analysis calls per turn. "
-                             "You can turn this off anytime; manual research "
-                             "is still available.",
+                        key=auto_widget_key,
+                        help="Optional. Picky checks Sleeper on the configured "
+                             f"{refresh}-second timer and researches the Top 5 "
+                             "ONCE when it's your pick. Up to five paid web "
+                             "searches and five analysis calls per turn. "
+                             "Turn off anytime. Manual research remains available.",
                     )
+                    st.session_state["scout_auto_on_turn"] = bool(auto_enabled)
                     if st.session_state.get("scout_auto_on_turn", False):
                         st.caption(
                             "Automatic research armed · only when Sleeper confirms "
@@ -1321,7 +1327,8 @@ def live_dashboard(active_page: str):
                         "Manual research always remains available. Each research run "
                         "can use up to five web-search calls and five analysis calls. "
                         "Automatic mode is off unless you enable it, and then runs "
-                        "once per confirmed turn. Manage spending in your OpenAI account."
+                        "once per confirmed turn, including if you researched before your turn. "
+                        "Manage spending in your OpenAI account."
                     )
                     if st.button(
                         "Research Top 5 with AI" if not cached else "Refresh AI research",
@@ -1332,7 +1339,8 @@ def live_dashboard(active_page: str):
                     ):
                         # A manual research click counts as this turn's attempt
                         # for auto mode, preventing duplicate unexpected charges.
-                        record_auto_attempt(st.session_state, turn_key)
+                        if on_clock:
+                            record_auto_attempt(st.session_state, turn_key)
                         with st.status("Researching each player and collecting sources…",
                                        expanded=True) as progress:
                             try:

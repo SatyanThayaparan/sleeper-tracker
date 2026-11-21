@@ -94,6 +94,36 @@ def projection_snapshot(candidate):
     return snapshot
 
 
+def response_text(response):
+    """Read text from Responses output_text or raw output message parts.
+
+    Some SDK responses expose useful text on output message content even
+    when the top-level aggregated output_text property is empty.
+    """
+    direct = read_field(response, "output_text")
+    if isinstance(direct, str) and direct.strip():
+        return direct.strip()
+    chunks = []
+    for item in read_field(response, "output", []) or []:
+        if read_field(item, "type") not in (None, "message"):
+            continue
+        for part in read_field(item, "content", []) or []:
+            text = read_field(part, "text")
+            if isinstance(text, str) and text.strip():
+                chunks.append(text.strip())
+    return "\n".join(chunks)
+
+
+def response_issue(response):
+    """Concise actionable diagnostics without exposing secrets or raw payloads."""
+    status = str(read_field(response, "status") or "unknown")
+    details = read_field(response, "incomplete_details")
+    reason = str(read_field(details, "reason") or "not supplied")
+    error = read_field(response, "error")
+    error_code = str(read_field(error, "code") or "none")
+    return f"status={status}, incomplete_reason={reason}, error_code={error_code}"
+
+
 def stage1_search(client, name, *, model):
     prompt = (
         f"Research NBA fantasy basketball player {name!r} for a Sleeper fantasy "
@@ -114,15 +144,25 @@ def stage1_search(client, name, *, model):
         tools=[{"type": "web_search", "search_context_size": "medium"}],
         tool_choice="required",
         include=["web_search_call.action.sources"],
-        max_output_tokens=1050,
+        max_output_tokens=3500,
         store=False,
     )
-    summary = str(read_field(response, "output_text") or "").strip()[:2800]
+    summary = response_text(response)[:2800]
     sources = extract_search_sources(response)
+    if not summary and not sources:
+        raise RuntimeError(
+            "Web search returned neither text nor source links ("
+            + response_issue(response) + ")."
+        )
+    # Source metadata without a text brief is not player-specific evidence.
+    # Preserve the source list but never invent an article summary.
     if not summary:
-        status = read_field(response, "status") or "unknown"
-        raise RuntimeError(f"Web research returned no summary (status={status}).")
-    return {"brief": summary, "sources": sources}
+        summary = (
+            "The provider returned retrieved URLs but no written research "
+            "summary. Article contents and player-specific claims are unverified."
+        )
+    return {"brief": summary, "sources": sources,
+            "retrieval_diagnostic": response_issue(response)}
 
 
 def stage2_analyze(client, candidate, search_result, *,
@@ -205,14 +245,21 @@ def stage2_analyze(client, candidate, search_result, *,
         input=json.dumps(payload, ensure_ascii=False, default=str),
         text={"format": {"type": "json_schema", "name": "picky_player_analysis",
                          "strict": True, "schema": schema}},
-        max_output_tokens=1300,
+        max_output_tokens=2600,
         store=False,
     )
-    raw = str(read_field(response, "output_text") or "").strip()
+    raw = response_text(response)
+    if not raw:
+        raise RuntimeError(
+            "Player analysis returned no text (" + response_issue(response) + ")."
+        )
     try:
         answer = json.loads(raw)
     except (TypeError, json.JSONDecodeError) as exc:
-        raise RuntimeError("Unable to parse player analysis response.") from exc
+        raise RuntimeError(
+            "Unable to parse structured player analysis ("
+            + response_issue(response) + ")."
+        ) from exc
     if not isinstance(answer, dict) or answer.get("name") != name:
         raise RuntimeError("Analysis returned a different player than requested.")
 
@@ -270,5 +317,36 @@ def research_player(client, candidate, *, open_slots, context=None,
     if not name:
         raise ValueError("Cannot research an unnamed player.")
     search = stage1_search(client, name, model=model)
-    return stage2_analyze(client, candidate, search, open_slots=open_slots,
-                          context=context, model=model)
+    try:
+        result = stage2_analyze(
+            client, candidate, search, open_slots=open_slots,
+            context=context, model=model,
+        )
+        result["analysis_status"] = "complete"
+        return result
+    except Exception as exc:
+        # Preserve the paid retrieval output rather than discard it when
+        # synthesis is incomplete. This text is model-generated and may
+        # contain unsourced claims; DO NOT label it as verified research.
+        brief = str(search.get("brief") or "").strip()
+        player = {
+            "name": name,
+            "role_outlook": "Role assessment not completed",
+            "recent_findings": brief[:800] or "No readable research summary returned.",
+            "availability_risk": "Not verified",
+            "draft_fit": str(candidate.get("roster") or "")[:320],
+            "why_now": "Use Picky's current rank and draft timing.",
+            "expert_take": "",
+            "evidence_date": "Unverified",
+            "expert_rankings": [], "evidence": [],
+            "verified_expert_evidence": [],
+        }
+        return {
+            "player": player,
+            "sources": [{"title": src["title"], "url": src["url"]}
+                        for src in search.get("sources", [])],
+            "source_status": player_research_summary(player),
+            "search_brief": brief,
+            "analysis_status": "retrieval_only",
+            "analysis_error": str(exc)[:200],
+        }

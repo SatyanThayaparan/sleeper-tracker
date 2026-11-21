@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 from research_pipeline import (
     extract_search_sources, normalized_source_url,
-    stage1_search, stage2_analyze, research_player,
+    stage1_search, stage2_analyze, research_player, response_text,
 )
 
 
@@ -118,7 +118,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(result["player"]["verified_expert_evidence"], [])
         self.assertEqual(result["sources"], [])
 
-    def test_wrong_player_is_rejected(self):
+    def test_wrong_player_does_not_erase_paid_search_brief(self):
         class Wrong(FakeClient):
             def create(self, **params):
                 response = super().create(**params)
@@ -127,8 +127,58 @@ class PipelineTests(unittest.TestCase):
                     obj["name"] = "Different Player"
                     response["output_text"] = json.dumps(obj)
                 return response
-        with self.assertRaisesRegex(RuntimeError, "different player"):
-            research_player(Wrong(), {"player": "Player A"}, open_slots=[])
+        result = research_player(Wrong(), {"player": "Player A"}, open_slots=[])
+        self.assertEqual(result["analysis_status"], "retrieval_only")
+        self.assertEqual(result["player"]["name"], "Player A")
+        self.assertIn("Yahoo Fantasy", result["player"]["recent_findings"])
+        self.assertEqual(result["player"]["verified_expert_evidence"], [])
+        self.assertTrue(result["sources"])
+        self.assertIn("different player", result["analysis_error"])
+
+    def test_raw_output_message_text_is_accepted(self):
+        response = {"output_text": "", "output": [
+            {"type": "message", "content": [
+                {"type": "output_text", "text": "Research summary found."}
+            ]}
+        ]}
+        self.assertEqual(response_text(response), "Research summary found.")
+
+    def test_search_with_sources_without_summary_is_preserved(self):
+        class SourcesOnly:
+            def __init__(self):
+                self.calls = []
+            @property
+            def responses(self):
+                return self
+            def create(self, **params):
+                self.calls.append(params)
+                return {"output_text": "", "status": "incomplete",
+                        "incomplete_details": {"reason": "max_output_tokens"},
+                        "output": [{"type": "web_search_call", "action": {
+                            "sources": [{"url": "https://nba.com/news/player-a",
+                                         "title": "News"}]}}]}
+        result = stage1_search(SourcesOnly(), "Player A", model="gpt-4.1-mini")
+        self.assertEqual(len(result["sources"]), 1)
+        self.assertIn("no written research summary", result["brief"])
+
+    def test_truncated_analysis_keeps_search_brief_and_links(self):
+        class Incomplete(FakeClient):
+            def create(self, **params):
+                result = super().create(**params)
+                if len(self.calls) == 2:
+                    result = {"output_text": "", "output": [],
+                              "status": "incomplete",
+                              "incomplete_details": {"reason": "max_output_tokens"}}
+                return result
+        client = Incomplete()
+        result = research_player(client, {"player": "Player A"}, open_slots=[])
+        self.assertEqual(result["analysis_status"], "retrieval_only")
+        self.assertIn("Yahoo Fantasy", result["player"]["recent_findings"])
+        self.assertEqual(len(result["sources"]), 1)
+        self.assertIn("incomplete_reason=max_output_tokens", result["analysis_error"])
+        self.assertEqual(client.calls[0]["max_output_tokens"], 3500)
+        self.assertEqual(client.calls[1]["max_output_tokens"], 2600)
+        self.assertEqual(result["player"]["verified_expert_evidence"], [])
 
 
 if __name__ == "__main__":

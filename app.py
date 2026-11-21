@@ -1342,7 +1342,7 @@ def live_dashboard(active_page: str):
             if top_five:
                 selected_detail = None
                 for rank_no, candidate in enumerate(top_five, 1):
-                    player_name = str(candidate.get("player") or "Player")
+                    candidate_name = str(candidate.get("player") or "Player")
                     player_id = str(candidate.get("player_id") or "")
                     meta = players.get(player_id, {})
                     display_candidate = dict(candidate)
@@ -1353,12 +1353,12 @@ def live_dashboard(active_page: str):
                     display_candidate["team"] = (
                         candidate.get("team") or meta.get("team") or "NBA"
                     )
-                    player_ai = ai_players.get(player_name) or {}
+                    player_ai = ai_players.get(candidate_name) or {}
                     timing = evaluate_pick_timing(
                         candidate, current_pick=next_pick,
                         following_pick=following_pick,
                         open_slots=roster_state["open_slots"] if roster_state else [],
-                        opponent=opponent_by_player.get(player_name),
+                        opponent=opponent_by_player.get(candidate_name),
                     )
                     citations = len(player_ai.get("verified_expert_evidence") or [])
                     summary = str(player_ai.get("recent_findings") or "").strip()
@@ -1368,13 +1368,13 @@ def live_dashboard(active_page: str):
                             or "Review roster fit and draft timing."
                         )
                     research_state = (
-                        "search_only" if player_name in
+                        "search_only" if candidate_name in
                         ((current_entry or {}).get("retrieval_only_players") or []) else
                         "researched" if player_ai else "ranking"
                     )
                     source_list = (
                         (current_entry or {}).get("per_player_sources", {}).get(
-                            player_name, []
+                            candidate_name, []
                         )
                     )
                     with st.container(key=f"ai_candidate_{rank_no}"):

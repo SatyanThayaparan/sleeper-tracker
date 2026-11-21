@@ -23,7 +23,7 @@ Picky's AI Scout uses the dark emerald sports-dashboard visual language while pr
 - **NBA portraits:** candidate cards, the featured pick and scouting details load lightweight player thumbnails directly from the public Sleeper image CDN using their existing numeric Sleeper NBA player IDs. Initials remain as a fallback if the CDN cannot provide a photo. This does not add another Sleeper API poll, OpenAI call, Python image conversion or photo download to the Streamlit server.
 - **Scouting details:** the **View details** button opens a large Streamlit dialog with three tabs: *Scouting overview*, *Reports & sources*, and *Draft context*. Original retrieved article URLs are available for inspection; citation links do not independently verify model-generated claims.
 - **Fluid layouts:** candidate cards, source panels and the dialog adapt to phone, tablet and different monitor widths, with reduced-motion support and native keyboard-focusable Streamlit buttons.
-- **Design isolation:** the HTML builder lives in `scout_design.py`, and scoped overrides live in `scout_style.py`. Core `recommend.py`, `scout.py` and Sleeper polling remain unchanged.
+- **Design isolation:** the HTML builder lives in `scout_design.py`, Scout overrides live in `scout_style.py`, and shared sidebar/page/metric/table polish lives in `page_style.py`. Core `recommend.py`, `scout.py` and Sleeper polling remain unchanged.
 
 Image service limitations: player pictures are externally hosted and not guaranteed for every ID; wrong, retired or missing media must degrade to the initials label. The cited CDN URL convention has been observed for Sleeper NBA assets, but real-device visual verification is still recommended.
 
@@ -90,6 +90,7 @@ sleeper-tracker/
 ├── theme.py                        # Dark theme + fixed sidebar CSS
 ├── scout_design.py                 # Escaped Scout cards, NBA headshots, dialog HTML
 ├── scout_style.py                  # Scout-specific responsive styling
+├── page_style.py                   # App-wide navigation, metrics, roster, table polish
 ├── assets/picky-icon.jpg           # dice cube icon
 ├── .streamlit/config.toml          # default Streamlit theme tokens
 ├── recommend.py                    # recommendation logic

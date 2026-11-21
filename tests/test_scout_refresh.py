@@ -43,7 +43,8 @@ class DraftRefreshTests(unittest.TestCase):
     def test_opt_in_mode_visible_and_manual_button_remains(self):
         source = APP.read_text(encoding="utf-8")
         self.assertIn('"Automatically research when I\'m on the clock"', source)
-        self.assertIn('key="scout_auto_on_turn"', source)
+        self.assertIn('auto_widget_key = "_scout_auto_on_turn_toggle"', source)
+        self.assertIn('st.session_state["scout_auto_on_turn"] = bool(auto_enabled)', source)
         self.assertIn('auto_enabled=bool(st.session_state.get("scout_auto_on_turn"))', source)
         self.assertIn('"Research Top 5 with AI"', source)
         self.assertIn('record_auto_attempt(st.session_state, turn_key)', source)
@@ -94,10 +95,12 @@ class AutoScoutTests(unittest.TestCase):
                 "report": {"players": [{"name": "Kevin Durant"}]},
             },
         }}
+        # A pre-turn manual research report remains cached, but the opted-in
+        # on-turn research must still refresh it once when our turn begins.
+        self.assertTrue(self.due(session))
+        record_auto_attempt(session, self.KEY)
         self.assertFalse(self.due(session))
-        # If shortlist changed but the same owned pick remains, the current
-        # auto call can run once to study the newly available candidates.
-        self.assertTrue(self.due(session, candidates=[{"player": "Jayson Tatum"}]))
+        self.assertFalse(self.due(session, candidates=[{"player": "Jayson Tatum"}]))
 
     def test_manual_button_can_still_retry_after_automatic_attempt(self):
         session = {}

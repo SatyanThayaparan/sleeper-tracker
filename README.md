@@ -10,7 +10,7 @@
 - Sidebar navigation: Overview, My Team, Draft Board, Rankings, Reports, AI Lab, Settings, Help
 - Settings & Connections for draft link, projections CSV, and ranking weights
 - Live draft metrics, top recommendations, sleeper / fade cards
-- Auto-refresh picks while the browser session is open, plus **Check Sleeper now** on Overview and Draft Board to bypass the four-second snapshot cache
+- Auto-refresh Sleeper picks **every 5 seconds by default** while the browser session is open (customizable in Settings), plus **Check Sleeper now** on Overview and Draft Board to bypass the four-second snapshot cache
 - Lock-In opportunity estimates from real league scoring inputs + user-supplied player volatility, schedule and availability
 - AI Scout: manual research by default, with optional opt-in once-per-turn on-clock web research; Ask Picky comparisons are manually paid and do not add new web searches
 - AI Lab: per-turn observed shortlist survival, retrospective ADP baseline, CSV export
@@ -24,6 +24,7 @@ Picky's AI Scout uses the dark emerald sports-dashboard visual language while pr
 - **Scouting details:** the **View details** button opens a large Streamlit dialog with three tabs: *Scouting overview*, *Reports & sources*, and *Draft context*. Original retrieved article URLs are available for inspection; citation links do not independently verify model-generated claims.
 - **Fluid layouts:** candidate cards, source panels and the dialog adapt to phone, tablet and different monitor widths, with reduced-motion support and native keyboard-focusable Streamlit buttons.
 - **Design isolation:** the HTML builder lives in `scout_design.py`, Scout overrides live in `scout_style.py`, and shared sidebar/page/metric/table polish lives in `page_style.py`. Core `recommend.py`, `scout.py` and Sleeper polling remain unchanged.
+- **Consistent branding:** the browser tab and Picky sidebar reuse `assets/picky-logo.png`, with `ICON_PATH` as the single source of truth.
 
 Image service limitations: player pictures are externally hosted and not guaranteed for every ID; wrong, retired or missing media must degrade to the initials label. The cited CDN URL convention has been observed for Sleeper NBA assets, but real-device visual verification is still recommended.
 

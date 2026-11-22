@@ -9,7 +9,7 @@ import streamlit as st
 
 APP_NAME = "Picky"
 APP_TAGLINE = "Live fantasy draft intelligence"
-ICON_PATH = Path(__file__).resolve().parent / "assets" / "picky-icon.jpg"
+ICON_PATH = Path(__file__).resolve().parent / "assets" / "picky-logo.png"
 
 NAV_PAGES = [
     ("overview", "Overview"),
@@ -1305,7 +1305,7 @@ hr { border-color: var(--color-border) !important; }
 
 def render_sidebar_brand() -> None:
     """Display the shipped PNG icon; avoid Streamlit/Pillow SVG parsing."""
-    logo_path = Path(__file__).resolve().parent / "assets" / "picky-logo.png"
+    logo_path = ICON_PATH
     brand_logo, brand_name = st.columns([0.24, 0.76], gap="small", vertical_alignment="center")
     with brand_logo:
         if logo_path.is_file():

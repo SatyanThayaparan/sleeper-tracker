@@ -44,7 +44,7 @@ from theme import (
 )
 
 API = "https://api.sleeper.app/v1"
-_page_icon = str(ICON_PATH) if ICON_PATH.is_file() else "🏀"
+_page_icon = str(ICON_PATH) if ICON_PATH.is_file() else "🎲"
 st.set_page_config(
     page_title=f"{APP_NAME} · Draft Board",
     page_icon=_page_icon,
@@ -97,7 +97,7 @@ def draft_setting_input(label, name, **kwargs):
 
 
 if "cfg_refresh" not in st.session_state:
-    st.session_state.cfg_refresh = 10
+    st.session_state.cfg_refresh = 5
 if "cfg_upside" not in st.session_state:
     st.session_state.cfg_upside = 35
 if "cfg_safety" not in st.session_state:

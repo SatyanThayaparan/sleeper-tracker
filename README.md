@@ -39,7 +39,7 @@ For a step-by-step walkthrough, see [User Guide](docs/USER_GUIDE.md).
 - The model estimates an optimistic expected best available game, **not** the score a manager will actually lock. Picky does not substitute ADP for missing points, or apply incomplete stat-category scoring silently. Ranking incorporates the Lock-In estimate only when compared players have adequate, comparable inputs.
 - Position fit, injuries/news signals, opponent roster gaps, and pick-wait risk inform the suggestions, but Picky does **not** output calibrated probabilities of a player still being available.
 
-For required columns, units, and interpretation, see [User Guide — Custom projections](docs/USER_GUIDE.md#custom-projections-and-lock-in).
+For required columns, units, and interpretation, see [User Guide — Custom projections](docs/USER_GUIDE.md#4-custom-projections-and-lock-in).
 
 ### AI Scout is optional and may cost money
 
@@ -54,7 +54,7 @@ To enable paid AI features on your own deployment, configure **both** `OPENAI_AP
 
 There is no Picky-enforced spending cap; control costs through your OpenAI account. Auto-research settings, reports, evaluation snapshots and conversations are **per browser session**, not synced across users.
 
-For detailed behavior and safe configuration, see [User Guide — AI Scout](docs/USER_GUIDE.md#ai-scout-and-ask-picky) and [Developer Guide](docs/DEVELOPER_GUIDE.md).
+For detailed behavior and safe configuration, see [User Guide — AI Scout](docs/USER_GUIDE.md#5-ai-scout-and-ask-picky) and [Developer Guide](docs/DEVELOPER_GUIDE.md).
 
 ## Local setup
 
